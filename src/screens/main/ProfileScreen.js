@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Alert, Modal, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { THEME } from '../../constants/theme';
-import { User, Settings, FileText, LogOut, HelpCircle, ChevronRight, Bell, Shield, Wallet } from 'lucide-react-native';
+import { User, Settings, FileText, LogOut, HelpCircle, ChevronRight, Bell, Shield, Wallet, MessageCircle, Phone } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
-import Button from '../../components/Button';
+
 
 export default function ProfileScreen({ navigation }) {
     const { logout, user } = useAuth();
     const [settingsVisible, setSettingsVisible] = useState(false);
+
+    // ... (MenuItem function is fine) ...
 
     const MenuItem = ({ icon: Icon, title, onPress, danger, value }) => (
         <TouchableOpacity style={styles.menuItem} onPress={onPress}>
@@ -31,56 +33,78 @@ export default function ProfileScreen({ navigation }) {
         Alert.alert("My Documents", "View your uploaded ID and Certificates here. (Coming Soon)");
     };
 
+    const handleCallSupport = () => {
+        const url = 'tel:+919999988888';
+        Linking.canOpenURL(url)
+            .then((supported) => {
+                if (!supported) {
+                    Alert.alert("Error", "Phone calls are not supported on this device");
+                } else {
+                    return Linking.openURL(url);
+                }
+            })
+            .catch((err) => console.error('An error occurred', err));
+    };
+
     const handleSupport = () => {
         Alert.alert("Support", "Contact us at support@freshhands.com or call +91 99999 88888");
     };
 
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                        {user?.name ? user.name.charAt(0).toUpperCase() : 'P'}
-                    </Text>
+            <ScrollView>
+                <View style={styles.header}>
+                    <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>
+                            {user?.name ? user.name.charAt(0).toUpperCase() : 'P'}
+                        </Text>
+                    </View>
+                    <View style={styles.userInfo}>
+                        <Text style={styles.name}>{user?.name || 'Guest User'}</Text>
+                        <Text style={styles.phone}>{user?.phone?.startsWith('+91') ? user.phone : `+91 ${user?.phone || 'Unknown'}`}</Text>
+                        {user?.service && (
+                            <View style={styles.badge}>
+                                <Text style={styles.badgeText}>{user.service}</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
-                <View style={styles.userInfo}>
-                    <Text style={styles.name}>{user?.name || 'Guest User'}</Text>
-                    <Text style={styles.phone}>+91 {user?.phone || 'Unknown'}</Text>
-                    {user?.service && (
-                        <View style={styles.badge}>
-                            <Text style={styles.badgeText}>{user.service}</Text>
-                        </View>
-                    )}
+
+                <View style={styles.menu}>
+                    <Text style={styles.sectionHeader}>Account</Text>
+                    <MenuItem
+                        icon={FileText}
+                        title="My Documents"
+                        onPress={handleDocuments}
+                    />
+                    <MenuItem
+                        icon={Wallet}
+                        title="Wallet & Earnings"
+                        onPress={() => navigation.navigate('Wallet')}
+                    />
+
+                    <Text style={styles.sectionHeader}>Preferences</Text>
+                    <MenuItem
+                        icon={Settings}
+                        title="Settings"
+                        onPress={() => setSettingsVisible(true)}
+                    />
+
+                    <Text style={styles.sectionHeader}>Support</Text>
+                    <MenuItem
+                        icon={MessageCircle}
+                        title="Chat Support"
+                        onPress={() => navigation.navigate('Chat')}
+                    />
+                    <MenuItem
+                        icon={Phone}
+                        title="Help & Call"
+                        onPress={handleCallSupport}
+                    />
+
+                    <Text style={styles.sectionHeader}>Actions</Text>
+                    <MenuItem icon={LogOut} title="Logout" onPress={logout} danger />
                 </View>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.menu}>
-                <Text style={styles.sectionHeader}>Account</Text>
-                <MenuItem
-                    icon={FileText}
-                    title="My Documents"
-                    onPress={handleDocuments}
-                />
-                <MenuItem
-                    icon={Wallet}
-                    title="Wallet & Earnings"
-                    onPress={() => navigation.navigate('Wallet')}
-                />
-
-                <Text style={styles.sectionHeader}>Preferences</Text>
-                <MenuItem
-                    icon={Settings}
-                    title="Settings"
-                    onPress={() => setSettingsVisible(true)}
-                />
-                <MenuItem
-                    icon={HelpCircle}
-                    title="Support & Help"
-                    onPress={handleSupport}
-                />
-
-                <Text style={styles.sectionHeader}>Actions</Text>
-                <MenuItem icon={LogOut} title="Logout" onPress={logout} danger />
             </ScrollView>
 
             {/* Settings Modal */}
@@ -117,7 +141,7 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                 </View>
             </Modal>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
 

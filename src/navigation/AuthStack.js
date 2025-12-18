@@ -4,6 +4,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import OtpVerificationScreen from '../screens/auth/OtpVerificationScreen';
 import RegistrationScreen from '../screens/auth/RegistrationScreen';
 import VerificationPendingScreen from '../screens/auth/VerificationPendingScreen';
+import CompleteProfileScreen from '../screens/auth/CompleteProfileScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -12,6 +13,7 @@ export default function AuthStack() {
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="OTP" component={OtpVerificationScreen} />
+            <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
             <Stack.Screen name="Register" component={RegistrationScreen} />
             <Stack.Screen name="VerificationPending" component={VerificationPendingScreen} />
         </Stack.Navigator>

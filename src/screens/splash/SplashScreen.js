@@ -24,9 +24,9 @@ const styles = StyleSheet.create({
         color: COLORS.white,
     },
     subtitle: {
-        fontSize: 18,
+        fontSize: 40,
         color: COLORS.white,
+        fontWeight: 'bold',
         marginTop: 8,
-        opacity: 0.9,
     }
 });

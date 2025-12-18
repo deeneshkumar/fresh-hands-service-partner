@@ -1,33 +1,61 @@
+
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, SectionList, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { THEME } from '../../constants/theme';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 import { useAuth } from '../../context/AuthContext';
-import { ChevronLeft, Check, Upload, CreditCard, User, Briefcase, FileText } from 'lucide-react-native';
+import { ArrowLeft, Check, Upload, CreditCard, User, Briefcase, FileText, ChevronDown, X, Camera, Award } from 'lucide-react-native';
 
 const STEPS = [
     { id: 1, title: "Personal", icon: User },
     { id: 2, title: "Work", icon: Briefcase },
-    { id: 3, title: "Verify ID", icon: FileText },
-    { id: 4, title: "Bank", icon: CreditCard },
+    { id: 3, title: "ID Check", icon: FileText },
+    { id: 4, title: "Selfie", icon: Camera },
+    { id: 5, title: "Skills", icon: Award },
+    { id: 6, title: "Bank", icon: CreditCard },
+];
+
+const SERVICES_DATA = [
+    { title: 'Cleaning', data: ['Home Cleaner (Full)', 'Kitchen Cleaning', 'Bathroom Cleaning'] },
+    { title: 'Repairs', data: ['Plumber', 'Electrician', 'Carpenter'] },
+    { title: 'Vehicle Services', data: ['Car Wash', 'Bike Service'] },
+    { title: 'Lifestyle & Home', data: ['Interior Design', 'House Painting'] },
+    { title: 'Tech Services', data: ['AC Service & Repair', 'Laptop / PC Repair'] },
+    { title: 'Pest Control', data: ['General Pest Control', 'Termite Treatment'] },
+    { title: 'Relocation', data: ['House Shifting (Small)', 'Vehicle Moving'] },
+    { title: 'Quick Fix', data: ['Door Lock Repair', 'Curtain Rod Installation'] },
+    { title: 'Salon', data: ['Men’s Haircut', 'Women’s Haircut'] },
+    { title: 'Massage', data: ['Full Body Massage', 'Head & Shoulder Massage'] },
 ];
 
 export default function RegistrationScreen({ route, navigation }) {
-    const { phone } = route?.params || { phone: '+919876543210' };
-    const { registerPartner, isLoading } = useAuth();
+    const { user, registerPartner, isLoading } = useAuth();
+    const phone = route?.params?.phone || user?.phone || '+919876543210';
     const [currentStep, setCurrentStep] = useState(1);
+    const [serviceModalVisible, setServiceModalVisible] = useState(false);
 
     const [form, setForm] = useState({
-        name: '',
-        email: '',
-        city: '',
+        name: user?.name || '',
+        address: user?.address || '',
+        city: user?.city || '',
         category: '',
+        serviceArea: '', // New field
         experience: '',
         aadharNumber: '',
+        panNumber: '',
         gstNumber: '', // Optional
+        aadharUploaded: false,
+        panUploaded: false,
+        hasShop: false,
+        shopName: '',
+        shopAddress: '',
+        shopPhotoUploaded: false,
+        selfieUploaded: false,
+        workPhotosUploaded: false,
+        skillDescription: '',
         bankName: '',
         accountNumber: '',
         ifsc: ''
@@ -40,14 +68,14 @@ export default function RegistrationScreen({ route, navigation }) {
     const validateStep = (step) => {
         switch (step) {
             case 1:
-                if (!form.name || !form.email || !form.city) {
+                if (!form.name || !form.address || !form.city) {
                     Alert.alert("Missing Details", "Please fill in all personal details.");
                     return false;
                 }
                 return true;
             case 2:
-                if (!form.category || !form.experience) {
-                    Alert.alert("Missing Details", "Please fill in all professional details.");
+                if (!form.category || !form.experience || !form.serviceArea) {
+                    Alert.alert("Missing Details", "Please fill in all professional details, including service area.");
                     return false;
                 }
                 return true;
@@ -56,9 +84,36 @@ export default function RegistrationScreen({ route, navigation }) {
                     Alert.alert("Invalid ID", "Please enter a valid 12-digit Aadhar number.");
                     return false;
                 }
+                if (!form.panNumber || form.panNumber.length < 10) {
+                    Alert.alert("Invalid ID", "Please enter a valid 10-character PAN number.");
+                    return false;
+                }
+                if (!form.aadharUploaded || !form.panUploaded) {
+                    Alert.alert("Missing Documents", "Please upload both Aadhar and PAN card images.");
+                    return false;
+                }
                 return true;
             case 4:
-                // Minimal check for mock
+                // Mock validation for selfie
+                // In real app check form.selfieUploaded
+                return true;
+            case 5:
+                if (!form.skillDescription) {
+                    Alert.alert("Missing Info", "Please provide a brief description of your skills or references.");
+                    return false;
+                }
+                if (form.hasShop) {
+                    if (!form.shopName || !form.shopAddress) {
+                        Alert.alert("Missing Shop Details", "Please fill in Shop Name and Address.");
+                        return false;
+                    }
+                    if (!form.shopPhotoUploaded) {
+                        Alert.alert("Missing Photo", "Please upload a photo of your shop.");
+                        return false;
+                    }
+                }
+                return true;
+            case 6:
                 if (!form.bankName || !form.accountNumber || !form.ifsc) {
                     Alert.alert("Missing Details", "Please fill in all bank details.");
                     return false;
@@ -83,13 +138,22 @@ export default function RegistrationScreen({ route, navigation }) {
         }
     };
 
+    React.useLayoutEffect(() => {
+        navigation.setOptions({
+            headerLeft: () => (
+                <TouchableOpacity onPress={handleBack} style={{ marginRight: 16 }}>
+                    <ArrowLeft size={24} color={COLORS.text} />
+                </TouchableOpacity>
+            ),
+        });
+    }, [navigation, currentStep]);
+
     const handleSubmit = async () => {
-        if (!validateStep(4)) return;
+        if (!validateStep(6)) return;
 
         try {
             await registerPartner({ ...form, phone });
-            // Success alert is handled by AuthContext logic implies we might just navigate
-            // But let's show an alert here for clarity
+            // Success logic is handled by AuthContext or we navigate manually
             Alert.alert(
                 "Application Submitted",
                 "Your profile is now under review.",
@@ -112,13 +176,17 @@ export default function RegistrationScreen({ route, navigation }) {
                             placeholder="Enter full name"
                             value={form.name}
                             onChangeText={(t) => updateForm('name', t)}
+                            maxLength={25}
                         />
                         <Input
-                            label="Email"
-                            placeholder="Enter email address"
-                            value={form.email}
-                            onChangeText={(t) => updateForm('email', t)}
-                            keyboardType="email-address"
+                            label="Full Address"
+                            placeholder="Current Address"
+                            value={form.address}
+                            onChangeText={(t) => updateForm('address', t)}
+                            multiline
+                            maxLength={100}
+
+                            style={{ minHeight: 80, maxHeight: 100, textAlignVertical: 'top' }}
                         />
                         <Input
                             label="City"
@@ -132,12 +200,25 @@ export default function RegistrationScreen({ route, navigation }) {
                 return (
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Professional Info</Text>
+
+                        <Text style={styles.label}>Service Category</Text>
+                        <TouchableOpacity
+                            style={styles.dropdownSelector}
+                            onPress={() => setServiceModalVisible(true)}
+                        >
+                            <Text style={[styles.dropdownText, !form.category && { color: COLORS.textLight }]}>
+                                {form.category || "Select Service Category"}
+                            </Text>
+                            <ChevronDown size={20} color={COLORS.textLight} />
+                        </TouchableOpacity>
+
                         <Input
-                            label="Service Category"
-                            placeholder="e.g. Plumber, Electrician"
-                            value={form.category}
-                            onChangeText={(t) => updateForm('category', t)}
+                            label="Preferred Service Area"
+                            placeholder="e.g. Anna Nagar, T. Nagar"
+                            value={form.serviceArea}
+                            onChangeText={(t) => updateForm('serviceArea', t)}
                         />
+
                         <Input
                             label="Experience (Years)"
                             placeholder="e.g. 2"
@@ -156,7 +237,7 @@ export default function RegistrationScreen({ route, navigation }) {
                 return (
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>ID Verification</Text>
-                        <Text style={styles.sectionSub}>Please provide your government ID for verification.</Text>
+                        <Text style={styles.sectionSub}>Provide government IDs for trust & safety.</Text>
 
                         <Input
                             label="Aadhar Number"
@@ -167,12 +248,48 @@ export default function RegistrationScreen({ route, navigation }) {
                             maxLength={12}
                         />
 
-                        {/* Mock Upload UI */}
-                        <Text style={[styles.label, { marginTop: 12 }]}>Upload Aadhar Card (Front & Back)</Text>
-                        <TouchableOpacity style={styles.uploadBox}>
-                            <Upload size={32} color={COLORS.primary} />
-                            <Text style={styles.uploadText}>Tap to Upload Documents</Text>
-                            <Text style={styles.uploadSub}>Supports JPG, PNG, PDF (Max 5MB)</Text>
+                        <TouchableOpacity
+                            style={[styles.uploadBox, { height: 100, marginBottom: 20, marginTop: 4 }]}
+                            onPress={() => updateForm('aadharUploaded', !form.aadharUploaded)}
+                        >
+                            {form.aadharUploaded ? (
+                                <View style={{ alignItems: 'center' }}>
+                                    <Check size={24} color={COLORS.primary} />
+                                    <Text style={styles.uploadText}>Aadhar Uploaded</Text>
+                                </View>
+                            ) : (
+                                <>
+                                    <Upload size={24} color={COLORS.primary} />
+                                    <Text style={styles.uploadText}>Upload Aadhar Card</Text>
+                                    <Text style={styles.uploadSub}>Front & Back</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+
+                        <Input
+                            label="PAN Number"
+                            placeholder="10-character PAN (e.g. ABCDE1234F)"
+                            value={form.panNumber}
+                            onChangeText={(t) => updateForm('panNumber', t)}
+                            autoCapitalize="characters"
+                            maxLength={10}
+                        />
+
+                        <TouchableOpacity
+                            style={[styles.uploadBox, { height: 100, marginBottom: 20, marginTop: 4 }]}
+                            onPress={() => updateForm('panUploaded', !form.panUploaded)}
+                        >
+                            {form.panUploaded ? (
+                                <View style={{ alignItems: 'center' }}>
+                                    <Check size={24} color={COLORS.primary} />
+                                    <Text style={styles.uploadText}>PAN Uploaded</Text>
+                                </View>
+                            ) : (
+                                <>
+                                    <Upload size={24} color={COLORS.primary} />
+                                    <Text style={styles.uploadText}>Upload PAN Card</Text>
+                                </>
+                            )}
                         </TouchableOpacity>
 
                         <Input
@@ -186,6 +303,114 @@ export default function RegistrationScreen({ route, navigation }) {
                     </View>
                 );
             case 4:
+                return (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Selfie Verification</Text>
+                        <Text style={styles.sectionSub}>Take a live selfie to verify your identity. No gallery photos allowed.</Text>
+
+                        <View style={{ alignItems: 'center', marginVertical: 32 }}>
+                            <View style={{
+                                width: 150, height: 150, borderRadius: 75,
+                                backgroundColor: COLORS.surface, borderWidth: 2, borderColor: COLORS.border,
+                                justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed'
+                            }}>
+                                <User size={64} color={COLORS.textLight} />
+                            </View>
+                            <TouchableOpacity style={{ marginTop: 24, flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, padding: 12, borderRadius: 8 }}>
+                                <Camera size={20} color={COLORS.white} style={{ marginRight: 8 }} />
+                                <Text style={{ color: COLORS.white, fontWeight: 'bold' }}>Open Camera</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.infoBox}>
+                            <Text style={styles.infoText}>Ensure good lighting and remove glasses/masks.</Text>
+                        </View>
+                    </View>
+                );
+            case 5:
+                return (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Skill Check</Text>
+                        <Text style={styles.sectionSub}>Showcase your capability for {form.category || 'your service'}.</Text>
+
+                        <Text style={styles.label}>Past Work Photos</Text>
+                        <TouchableOpacity style={styles.uploadBox}>
+                            <Upload size={32} color={COLORS.primary} />
+                            <Text style={styles.uploadText}>Upload 2-3 Work Photos</Text>
+                            <Text style={styles.uploadSub}>e.g. Fixed pipes, Cleaned room</Text>
+                        </TouchableOpacity>
+
+                        <View style={{ height: 20 }} />
+
+                        <Input
+                            label={`Experience / References(${form.category || 'General'})`}
+                            placeholder="Describe your past work or provide reference contacts..."
+                            multiline
+                            numberOfLines={4}
+                            value={form.skillDescription}
+                            onChangeText={(t) => updateForm('skillDescription', t)}
+                            style={{ height: 100, textAlignVertical: 'top' }}
+                        />
+
+                        {/* Shop Reference Toggle */}
+                        <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20 }}
+                            onPress={() => updateForm('hasShop', !form.hasShop)}
+                        >
+                            <View style={{
+                                width: 24, height: 24, borderRadius: 4, borderWidth: 2,
+                                borderColor: form.hasShop ? COLORS.primary : COLORS.border,
+                                alignItems: 'center', justifyContent: 'center', marginRight: 10,
+                                backgroundColor: form.hasShop ? COLORS.primary : 'transparent'
+                            }}>
+                                {form.hasShop && <Check size={16} color={COLORS.white} />}
+                            </View>
+                            <Text style={{ color: COLORS.text, fontWeight: '500' }}>I have an offline shop / office</Text>
+                        </TouchableOpacity>
+
+                        {form.hasShop && (
+                            <View style={{ marginLeft: 8, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: COLORS.border }}>
+                                <Input
+                                    label="Shop Name"
+                                    placeholder="e.g. Siva Electronics"
+                                    value={form.shopName}
+                                    onChangeText={(t) => updateForm('shopName', t)}
+                                />
+                                <Input
+                                    label="Shop Address"
+                                    placeholder="Address of your shop"
+                                    value={form.shopAddress}
+                                    onChangeText={(t) => updateForm('shopAddress', t)}
+                                />
+                                <Text style={styles.label}>Shop Photo</Text>
+                                <TouchableOpacity
+                                    style={[styles.uploadBox, { height: 120, marginBottom: 20 }]}
+                                    onPress={() => updateForm('shopPhotoUploaded', !form.shopPhotoUploaded)}
+                                >
+                                    {form.shopPhotoUploaded ? (
+                                        <View style={{ alignItems: 'center' }}>
+                                            <Check size={24} color={COLORS.primary} />
+                                            <Text style={styles.uploadText}>Photo Uploaded</Text>
+                                        </View>
+                                    ) : (
+                                        <>
+                                            <Camera size={32} color={COLORS.primary} />
+                                            <Text style={styles.uploadText}>Take/Upload Shop Photo</Text>
+                                            <Text style={styles.uploadSub}>Showcase your shop board or interior</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        <View style={[styles.infoBox, { backgroundColor: '#E3F2FD' }]}>
+                            <Text style={[styles.infoText, { color: '#1565C0' }]}>
+                                Verification: We may call your references or conduct a field audit later.
+                            </Text>
+                        </View>
+                    </View>
+                );
+            case 6:
                 return (
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Bank Details</Text>
@@ -225,16 +450,7 @@ export default function RegistrationScreen({ route, navigation }) {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Header with Back Button */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-                    <ChevronLeft size={24} color={COLORS.text} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Partner Registration</Text>
-                <View style={{ width: 24 }} />
-            </View>
-
+        <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
             {/* Stepper */}
             <View style={styles.stepperContainer}>
                 {STEPS.map((step, index) => {
@@ -269,17 +485,75 @@ export default function RegistrationScreen({ route, navigation }) {
                 })}
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
-                {renderStepContent()}
-            </ScrollView>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+                    {renderStepContent()}
+                </ScrollView>
+            </KeyboardAvoidingView>
 
             <View style={styles.footer}>
-                {currentStep < 4 ? (
-                    <Button title="Next" onPress={handleNext} />
-                ) : (
-                    <Button title="Submit Application" onPress={handleSubmit} loading={isLoading} />
-                )}
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                    {currentStep > 1 && (
+                        <View style={{ flex: 1 }}>
+                            <Button title="Previous" onPress={handleBack} variant="outline" />
+                        </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                        {currentStep < 6 ? (
+                            <Button title="Next" onPress={handleNext} />
+                        ) : (
+                            <Button title="Submit" onPress={handleSubmit} loading={isLoading} />
+                        )}
+                    </View>
+                </View>
             </View>
+            {/* Service Selection Modal */}
+            <Modal
+                visible={serviceModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setServiceModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Select Service Category</Text>
+                            <TouchableOpacity onPress={() => setServiceModalVisible(false)} style={styles.closeButton}>
+                                <X size={24} color={COLORS.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <SectionList
+                            sections={SERVICES_DATA}
+                            keyExtractor={(item, index) => item + index}
+                            renderSectionHeader={({ section: { title } }) => (
+                                <View style={styles.sectionHeader}>
+                                    <Text style={styles.sectionHeaderText}>{title}</Text>
+                                </View>
+                            )}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    style={styles.optionItem}
+                                    onPress={() => {
+                                        updateForm('category', item);
+                                        setServiceModalVisible(false);
+                                    }}
+                                >
+                                    <Text style={[
+                                        styles.optionText,
+                                        form.category === item && styles.optionTextSelected
+                                    ]}>{item}</Text>
+                                    {form.category === item && <Check size={20} color={COLORS.primary} />}
+                                </TouchableOpacity>
+                            )}
+                            contentContainerStyle={{ paddingBottom: 20 }}
+                        />
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -289,7 +563,21 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: COLORS.background,
     },
+    // ... (header, stepperContainer, stepItem, stepCircle, activeStepCircle, 
+    // completedStepCircle, stepLabel, activeStepLabel, connectorLine, 
+    // activeConnector, content styles remain same)
+
+    // Explicitly re-adding kept styles for clarity if needed, or just appending new ones.
+    // Ideally I should merge, but since I am replacing the end of the file, I need to be careful.
+    // I will use replace_file_content with targeted ranges to append styles or replace the style block.
+
+    // Wait, the previous tool only replaced the renderStepContent.
+    // I need to insert the Modal before `</SafeAreaView > ` and add styles.
+
+    // I will just return the styles object extended.
+
     header: {
+        // ... (lines 292-300)
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -305,7 +593,7 @@ const styles = StyleSheet.create({
     },
     stepperContainer: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         paddingHorizontal: 24,
         paddingVertical: 20,
         backgroundColor: COLORS.surface,
@@ -356,21 +644,24 @@ const styles = StyleSheet.create({
         zIndex: 1,
     },
     activeConnector: {
-        backgroundColor: COLORS.primary, // Or success
+        backgroundColor: COLORS.primary,
     },
     content: {
         padding: 20,
+    },
+    section: {
+        marginBottom: 16, // Reduced from 24
     },
     sectionTitle: {
         fontSize: 22,
         fontWeight: 'bold',
         color: COLORS.text,
-        marginBottom: 8,
+        marginBottom: 12, // Reduced from 20
     },
     sectionSub: {
         fontSize: 14,
         color: COLORS.textLight,
-        marginBottom: 24,
+        marginBottom: 16, // Reduced from 24
     },
     inputDisable: {
         opacity: 0.7,
@@ -393,9 +684,10 @@ const styles = StyleSheet.create({
         fontSize: 13,
     },
     label: {
-        marginBottom: 8,
+        marginBottom: 6, // Reduced from 8
         color: COLORS.text,
         fontWeight: '500',
+        fontSize: 14,
     },
     uploadBox: {
         height: 150,
@@ -416,5 +708,81 @@ const styles = StyleSheet.create({
         marginTop: 4,
         fontSize: 12,
         color: COLORS.textLight,
-    }
+    },
+    // Dropdown Styles
+    dropdownSelector: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        backgroundColor: COLORS.surface,
+        marginBottom: 16,
+    },
+    dropdownText: {
+        fontSize: 16,
+        color: COLORS.text,
+    },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: COLORS.background,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        maxHeight: '80%',
+        paddingBottom: 20,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: COLORS.text,
+    },
+    closeButton: {
+        padding: 4,
+    },
+    sectionHeader: {
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        backgroundColor: COLORS.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+    },
+    sectionHeaderText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.textLight,
+        textTransform: 'uppercase',
+    },
+    optionItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border + '80', // semi-transparent
+    },
+    optionText: {
+        fontSize: 16,
+        color: COLORS.text,
+    },
+    optionTextSelected: {
+        color: COLORS.primary,
+        fontWeight: 'bold',
+    },
 });

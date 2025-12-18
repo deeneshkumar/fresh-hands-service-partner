@@ -3,10 +3,11 @@ import { View, Text, StyleSheet, Switch, ScrollView, Modal, TouchableOpacity, Di
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { THEME } from '../../constants/theme';
-import { Briefcase, IndianRupee, Star, MapPin, Clock, ShieldCheck, ChevronRight, Gift, TrendingUp, Users } from 'lucide-react-native';
+import { Briefcase, IndianRupee, Star, MapPin, Clock, ShieldCheck, ChevronRight, Gift, TrendingUp, Users, Bell, User } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useJob } from '../../context/JobContext';
 import Button from '../../components/Button';
+import DashboardHeader from '../../components/DashboardHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -128,86 +129,99 @@ export default function DashboardScreen({ navigation }) {
         </View>
     );
 
+    // --- SUB COMPONENTS ---
+
+    // DashboardHeader is now imported
+
+
     const GuestDashboard = () => (
-        <ScrollView contentContainerStyle={styles.content}>
-            <Text style={styles.sectionHeader}>Welcome, {user?.name || 'Partner'}</Text>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+            <DashboardHeader />
+            <View style={styles.content}>
+                <Text style={styles.greetingText} numberOfLines={1} adjustsFontSizeToFit>
+                    <Text style={{ color: '#E65100', fontSize: 28 }}>Glad to see you,</Text> Let's earn ! {user?.name?.split(' ')[0] || 'Partner'}
+                </Text>
 
-            {isUnregistered && <RegistrationBanner />}
-            {isPending && <VerificationCard />}
+                {isUnregistered && <RegistrationBanner />}
+                {isPending && <VerificationCard />}
 
-            <Text style={[styles.sectionHeader, { marginTop: 24 }]}>Why Join Us?</Text>
+                <Text style={[styles.sectionHeader, { marginTop: 24 }]}>Why Join Us?</Text>
 
-            <MarketingCard
-                icon={TrendingUp}
-                title="High Earnings"
-                desc="Earn up to ₹30,000 per month with flexible working hours."
-                color={COLORS.success}
-            />
-            <MarketingCard
-                icon={Gift}
-                title="Weekly Incentives"
-                desc="Get bonuses for completing targets and high ratings."
-                color={COLORS.warning}
-            />
-            <MarketingCard
-                icon={Users}
-                title="Growing Community"
-                desc="Join over 5,000+ verified service professionals."
-                color={COLORS.primary}
-            />
+                <MarketingCard
+                    icon={TrendingUp}
+                    title="High Earnings"
+                    desc="Earn up to ₹30,000 per month with flexible working hours."
+                    color={COLORS.success}
+                />
+                <MarketingCard
+                    icon={Gift}
+                    title="Weekly Incentives"
+                    desc="Get bonuses for completing targets and high ratings."
+                    color={COLORS.warning}
+                />
+                <MarketingCard
+                    icon={Users}
+                    title="Growing Community"
+                    desc="Join over 5,000+ verified service professionals."
+                    color={COLORS.primary}
+                />
+            </View>
         </ScrollView>
     );
 
     const ProfessionalDashboard = () => (
-        <ScrollView contentContainerStyle={styles.content}>
-            <View style={styles.statsRow}>
-                <StatCard
-                    icon={IndianRupee}
-                    title="Today's Earnings"
-                    value={`₹${jobHistory.filter(j => j.date === new Date().toISOString().split('T')[0]).reduce((acc, curr) => acc + curr.amount, 0)}`}
-                    color={COLORS.primary}
-                />
-                <StatCard
-                    icon={Briefcase}
-                    title="Jobs Done"
-                    value={jobHistory.filter(j => j.date === new Date().toISOString().split('T')[0]).length.toString()}
-                    color={COLORS.secondary}
-                />
-            </View>
-
-            <View style={styles.ratingCard}>
-                <Text style={styles.ratingTitle}>Your Rating</Text>
-                <View style={styles.ratingRow}>
-                    <Text style={styles.ratingValue}>{user?.rating || 'NEW'}</Text>
-                    <View style={{ flexDirection: 'row', marginLeft: 8 }}>
-                        {[1, 2, 3, 4, 5].map(i => (
-                            <Star
-                                key={i}
-                                size={16}
-                                fill={i <= Math.round(user?.rating || 0) ? COLORS.warning : 'transparent'}
-                                color={COLORS.warning}
-                            />
-                        ))}
-                    </View>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+            <DashboardHeader />
+            <View style={styles.content}>
+                <View style={styles.statsRow}>
+                    <StatCard
+                        icon={IndianRupee}
+                        title="Today's Earnings"
+                        value={`₹${jobHistory.filter(j => j.date === new Date().toISOString().split('T')[0]).reduce((acc, curr) => acc + curr.amount, 0)}`}
+                        color={COLORS.primary}
+                    />
+                    <StatCard
+                        icon={Briefcase}
+                        title="Jobs Done"
+                        value={jobHistory.filter(j => j.date === new Date().toISOString().split('T')[0]).length.toString()}
+                        color={COLORS.secondary}
+                    />
                 </View>
-                <Text style={styles.ratingSub}>Based on last 50 jobs</Text>
-            </View>
 
-            <View style={styles.section}>
-                {activeJob ? (
-                    <ActiveJobCard job={activeJob} />
-                ) : (
-                    <View style={styles.emptyJob}>
-                        <Text style={styles.emptyText}>
-                            {isDutyOn ? "Waiting for new requests..." : "Go Online to receive jobs."}
-                        </Text>
-                        {isDutyOn && (
-                            <TouchableOpacity onPress={simulateIncomingJob} style={styles.testBtn}>
-                                <Text style={styles.testBtnText}>Simulate Inviting Job</Text>
-                            </TouchableOpacity>
-                        )}
+                <View style={styles.ratingCard}>
+                    <Text style={styles.ratingTitle}>Your Rating</Text>
+                    <View style={styles.ratingRow}>
+                        <Text style={styles.ratingValue}>{user?.rating || 'NEW'}</Text>
+                        <View style={{ flexDirection: 'row', marginLeft: 8 }}>
+                            {[1, 2, 3, 4, 5].map(i => (
+                                <Star
+                                    key={i}
+                                    size={16}
+                                    fill={i <= Math.round(user?.rating || 0) ? COLORS.warning : 'transparent'}
+                                    color={COLORS.warning}
+                                />
+                            ))}
+                        </View>
                     </View>
-                )}
+                    <Text style={styles.ratingSub}>Based on last 50 jobs</Text>
+                </View>
+
+                <View style={styles.section}>
+                    {activeJob ? (
+                        <ActiveJobCard job={activeJob} />
+                    ) : (
+                        <View style={styles.emptyJob}>
+                            <Text style={styles.emptyText}>
+                                {isDutyOn ? "Waiting for new requests..." : "Go Online to receive jobs."}
+                            </Text>
+                            {isDutyOn && (
+                                <TouchableOpacity onPress={simulateIncomingJob} style={styles.testBtn}>
+                                    <Text style={styles.testBtnText}>Simulate Inviting Job</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    )}
+                </View>
             </View>
         </ScrollView>
     );
@@ -258,35 +272,6 @@ export default function DashboardScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={styles.greeting}>Fresh Hands Partner</Text>
-                        {isVerified && (
-                            <View style={styles.verifiedBadge}>
-                                <ShieldCheck size={14} color={COLORS.white} />
-                                <Text style={styles.verifiedText}>Verified</Text>
-                            </View>
-                        )}
-                    </View>
-                    {isVerified && (
-                        <Text style={[styles.role, { color: isDutyOn ? COLORS.success : COLORS.error }]}>
-                            {isDutyOn ? 'You are Online' : 'You are Offline'}
-                        </Text>
-                    )}
-                </View>
-
-                {isVerified && (
-                    <Switch
-                        value={isDutyOn}
-                        onValueChange={handleToggleDuty}
-                        trackColor={{ false: COLORS.border, true: COLORS.success }}
-                        thumbColor={COLORS.white}
-                    />
-                )}
-            </View>
-
             {/* Main Content Switch */}
             {isVerified ? <ProfessionalDashboard /> : <GuestDashboard />}
 
@@ -336,44 +321,98 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
         paddingHorizontal: THEME.spacing.m,
-        paddingVertical: THEME.spacing.l,
+        paddingTop: 15, // More top padding for safe area
+        paddingBottom: -15,
         backgroundColor: COLORS.surface,
         borderBottomWidth: 1,
         borderBottomColor: COLORS.border,
-        elevation: 2,
+        elevation: 4,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+    },
+    headerTop: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    profileSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    avatarContainer: {
+        width: 45,
+        height: 45,
+        borderRadius: 22.5,
+        backgroundColor: COLORS.primaryLight + '40',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.primaryLight,
     },
     greeting: {
         fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.text,
     },
-    role: {
-        fontSize: 12,
-        marginTop: 2,
-        fontWeight: '600',
-    },
-    verifiedBadge: {
+    locationRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: COLORS.success,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-        marginLeft: 8,
+        marginTop: 2,
     },
-    verifiedText: {
-        color: COLORS.white,
-        fontSize: 10,
-        fontWeight: 'bold',
+    locationText: {
+        fontSize: 12,
+        color: COLORS.textLight,
         marginLeft: 4,
+    },
+    notificationBtn: {
+        padding: 8,
+        backgroundColor: COLORS.background,
+        borderRadius: 12,
+        position: 'relative',
+    },
+    redDot: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: COLORS.error,
+        zIndex: 2,
+        borderWidth: 1,
+        borderColor: COLORS.surface,
+    },
+    statusContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: COLORS.background,
+        padding: 12,
+        borderRadius: 12,
+        marginTop: 4,
+    },
+    statusTextContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 8,
+    },
+    statusLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: COLORS.text,
+    },
+    scrollContent: {
+        padding: 0,
+        flexGrow: 1,
     },
     content: {
         padding: THEME.spacing.m,
@@ -381,6 +420,13 @@ const styles = StyleSheet.create({
     },
     sectionHeader: {
         fontSize: 18,
+        fontWeight: 'bold',
+        color: COLORS.text,
+        marginBottom: THEME.spacing.m,
+        marginTop: 8,
+    },
+    greetingText: {
+        fontSize: 24,
         fontWeight: 'bold',
         color: COLORS.text,
         marginBottom: THEME.spacing.m,
@@ -412,14 +458,14 @@ const styles = StyleSheet.create({
         borderRadius: 40,
     },
     regTitle: {
-        fontSize: 24,
+        fontSize: 26,
         fontWeight: 'bold',
         color: COLORS.primary,
         textAlign: 'center',
         marginBottom: 8,
     },
     regSub: {
-        fontSize: 15,
+        fontSize: 16,
         color: COLORS.textLight,
         textAlign: 'center',
         marginBottom: 24,

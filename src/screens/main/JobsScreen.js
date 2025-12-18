@@ -4,11 +4,32 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { THEME } from '../../constants/theme';
 import { MapPin, Calendar, Clock, Phone, Navigation, CheckCircle } from 'lucide-react-native';
+import { useAuth } from '../../context/AuthContext';
 import { useJob } from '../../context/JobContext';
 
-export default function JobsScreen() {
+export default function JobsScreen({ navigation }) {
+    const { partnerStatus } = useAuth();
     const [activeTab, setActiveTab] = useState('ACTIVE'); // ACTIVE | HISTORY
     const { activeJob, jobHistory, updateJobStatus, completeJob } = useJob();
+
+    if (partnerStatus !== 'APPROVED') {
+        return (
+            <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+                <View style={{ padding: 20, backgroundColor: COLORS.surface, borderRadius: 16, alignItems: 'center', width: '100%' }}>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: COLORS.text, marginBottom: 8 }}>Access Restricted</Text>
+                    <Text style={{ textAlign: 'center', color: COLORS.textLight, marginBottom: 20 }}>
+                        Please complete your partner registration and get approved to view jobs and history.
+                    </Text>
+                    <TouchableOpacity
+                        style={{ backgroundColor: COLORS.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 }}
+                        onPress={() => navigation.navigate('Dashboard')}
+                    >
+                        <Text style={{ color: COLORS.white, fontWeight: 'bold' }}>Go to Dashboard</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     const handleStatusUpdate = () => {
         if (!activeJob) return;
@@ -136,6 +157,7 @@ export default function JobsScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
+            <DashboardHeader />
             <View style={styles.tabs}>
                 <TabButton title="Current Job" tab="ACTIVE" />
                 <TabButton title="History" tab="HISTORY" />
@@ -159,6 +181,8 @@ export default function JobsScreen() {
         </SafeAreaView>
     );
 }
+
+
 
 const styles = StyleSheet.create({
     container: {

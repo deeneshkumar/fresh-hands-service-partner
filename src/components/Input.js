@@ -10,19 +10,22 @@ export default function Input({
     placeholder = '',
     keyboardType = 'default',
     secureTextEntry = false,
-    style = {}
+    style = {},
+    inputStyle = {},
+    ...props
 }) {
     return (
         <View style={[styles.container, style]}>
             {!!label && <Text style={styles.label}>{label}</Text>}
             <TextInput
-                style={styles.input}
+                style={[styles.input, inputStyle]}
                 value={String(value)}
                 onChangeText={onChangeText}
                 placeholder={placeholder}
                 placeholderTextColor={COLORS.textLight}
                 keyboardType={keyboardType}
                 secureTextEntry={secureTextEntry}
+                {...props}
             />
         </View>
     );

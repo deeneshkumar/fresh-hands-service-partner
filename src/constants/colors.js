@@ -1,17 +1,17 @@
 export const COLORS = {
-    primary: '#FF5722', // Deep Orange - Matching Main App
-    primaryLight: '#FFCCBC',
-    secondary: '#FFC107', // Amber
-    background: '#F5F5F5',
+    primary: '#00695C', // Deep Teal - Trust, Stability, Freshness
+    primaryLight: '#B2DFDB', // Soft Teal - Calmness
+    secondary: '#1565C0', // Blue - Professionalism, Service
+    background: '#F8F9FA', // Cool Light Grey - Clean foundation
     surface: '#FFFFFF',
-    text: '#212121',
-    textLight: '#757575',
-    border: '#E0E0E0',
-    success: '#4CAF50',
-    error: '#F44336',
-    warning: '#FF9800',
+    text: '#102027', // Very Dark Blue-Grey - Stronger contrast than pure black
+    textLight: '#546E7A', // Blue-Grey - Subtle text
+    border: '#CFD8DC', // Blue-Grey Light
+    success: '#2E7D32', // Natural Green
+    error: '#C62828', // Mature Red
+    warning: '#F9A825', // Muted Yellow
     white: '#FFFFFF',
     black: '#000000',
-    online: '#4CAF50',
-    offline: '#BDBDBD',
+    online: '#2E7D32',
+    offline: '#B0BEC5',
 };

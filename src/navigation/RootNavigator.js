@@ -3,6 +3,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AuthStack from './AuthStack';
 import MainTabNavigator from './MainTabNavigator';
+import ChatScreen from '../screens/main/ChatScreen';
+
 import SplashScreen from '../screens/splash/SplashScreen';
 import RegistrationScreen from '../screens/auth/RegistrationScreen';
 import VerificationPendingScreen from '../screens/auth/VerificationPendingScreen';
@@ -15,7 +17,6 @@ export default function RootNavigator() {
     const [isSplashVisible, setIsSplashVisible] = useState(true);
 
     useEffect(() => {
-        // Simulate splash delay
         setTimeout(() => setIsSplashVisible(false), 2000);
     }, []);
 
@@ -31,6 +32,7 @@ export default function RootNavigator() {
                         <Stack.Screen name="Main" component={MainTabNavigator} />
                         <Stack.Screen name="Register" component={RegistrationScreen} options={{ headerShown: true, title: 'Partner Registration' }} />
                         <Stack.Screen name="VerificationPending" component={VerificationPendingScreen} options={{ headerShown: false }} />
+                        <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />
                     </>
                 ) : (
                     <Stack.Screen name="Auth" component={AuthStack} />

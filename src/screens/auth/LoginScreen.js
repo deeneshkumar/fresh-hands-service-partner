@@ -25,19 +25,43 @@ export default function LoginScreen({ navigation }) {
     const [showCountryPicker, setShowCountryPicker] = useState(false);
 
     const handleLogin = () => {
-        if (isValidPhoneNumber(phoneNumber)) {
+        const cleanedPhone = phoneNumber.trim();
+
+        if (cleanedPhone.length === 0) {
+            alert('Mobile number is required to proceed.');
+            return;
+        }
+
+        if (cleanedPhone.length !== 10) {
+            alert(`Mobile number must be exactly 10 digits. You entered ${cleanedPhone.length} digits.`);
+            return;
+        }
+
+        // Check for Indian mobile number format (starts with 6, 7, 8, or 9)
+        if (selectedCountry.code === 'IN' && !/^[6-9]/.test(cleanedPhone)) {
+            alert('Indian mobile numbers must start with 6, 7, 8, or 9.');
+            return;
+        }
+
+        if (isValidPhoneNumber(cleanedPhone)) {
             // Simulate sending OTP
-            const otp = Math.floor(1000 + Math.random() * 9000);
+            const otp = Math.floor(100000 + Math.random() * 900000);
             alert(`OTP Sent: ${otp}`);
-            // Passing rawPhone as well for easier logic downstream if needed, though mostly using formatted
+            // Passing rawPhone as well for easier logic downstream if needed
             navigation.navigate('OTP', {
-                phoneNumber: `${selectedCountry.dial_code} ${phoneNumber}`,
+                phoneNumber: `${selectedCountry.dial_code} ${cleanedPhone}`,
                 generatedOtp: otp,
-                rawPhone: phoneNumber
+                rawPhone: cleanedPhone
             });
         } else {
-            alert('Please enter a valid 10-digit mobile number');
+            alert('Please enter a valid mobile number.');
         }
+    };
+
+    const handlePhoneChange = (text) => {
+        // Edge Case: Prevent non-numeric characters (paste handling)
+        const numericValue = text.replace(/[^0-9]/g, '');
+        setPhoneNumber(numericValue);
     };
 
     const renderCountryItem = ({ item }) => (
@@ -87,14 +111,15 @@ export default function LoginScreen({ navigation }) {
                                 placeholder="Mobile Number"
                                 keyboardType="phone-pad"
                                 value={phoneNumber}
-                                onChangeText={setPhoneNumber}
+                                onChangeText={handlePhoneChange}
                                 maxLength={10}
                                 style={styles.inputReset} // Override container styles
+                                inputStyle={{ borderRadius: 12 }}
                             />
                         </View>
                     </View>
 
-                    <Text style={styles.helperText}>We will send you a 4 digit OTP to verify</Text>
+                    <Text style={styles.helperText}>We will send you a 6 digit OTP to verify</Text>
 
                     <Button title="Continue" onPress={handleLogin} style={styles.button} />
                 </View>
@@ -140,7 +165,8 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         padding: THEME.spacing.l,
-        justifyContent: 'center',
+        paddingTop: 80, // Move content up but keep it safe from status bar
+        justifyContent: 'flex-start',
     },
     header: {
         alignItems: 'center',
@@ -153,8 +179,9 @@ const styles = StyleSheet.create({
         marginBottom: THEME.spacing.s,
     },
     tagline: {
-        fontSize: 16,
-        color: COLORS.textLight,
+        fontSize: 24,
+        color: COLORS.primary,
+        fontWeight: 'bold',
     },
     form: {
         width: '100%',
@@ -176,7 +203,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.surface,
         borderWidth: 1,
         borderColor: COLORS.border,
-        borderRadius: THEME.borderRadius.m,
+        borderRadius: 12,
         paddingHorizontal: 10,
         height: 50, // Fixed height to match Input's implicit height (approx)
         marginRight: 8,

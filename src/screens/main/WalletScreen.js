@@ -4,11 +4,33 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { THEME } from '../../constants/theme';
 import Button from '../../components/Button';
+import { useAuth } from '../../context/AuthContext';
 import { useJob } from '../../context/JobContext';
+import { TouchableOpacity } from 'react-native';
 
-export default function WalletScreen() {
+import DashboardHeader from '../../components/DashboardHeader';
+
+export default function WalletScreen({ navigation }) {
+    const { partnerStatus } = useAuth();
     const { jobHistory } = useJob();
     const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+    if (partnerStatus !== 'APPROVED') {
+        return (
+            <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <View style={{ padding: 24, backgroundColor: COLORS.surface, borderRadius: 16, alignItems: 'center', width: '100%', elevation: 4 }}>
+                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: COLORS.text, marginBottom: 12 }}>Wallet Locked</Text>
+                    <Text style={{ textAlign: 'center', color: COLORS.textLight, marginBottom: 24, lineHeight: 22 }}>
+                        You need to be a verified partner to access your wallet and withdraw earnings.
+                    </Text>
+                    <Button
+                        title="Complete Registration"
+                        onPress={() => navigation.navigate('Dashboard')}
+                    />
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     // Calculate total earnings
     const totalEarnings = jobHistory
@@ -44,9 +66,9 @@ export default function WalletScreen() {
             ]
         );
     };
-
     return (
         <SafeAreaView style={styles.container}>
+            <DashboardHeader />
             <View style={styles.balanceCard}>
                 <Text style={styles.balanceTitle}>Total Balance</Text>
                 <Text style={styles.balanceValue}>₹{walletBalance.toFixed(2)}</Text>
