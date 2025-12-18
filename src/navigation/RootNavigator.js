@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AuthStack from './AuthStack';
 import MainTabNavigator from './MainTabNavigator';
 import ChatScreen from '../screens/main/ChatScreen';
+import EditProfileScreen from '../screens/main/EditProfileScreen';
 
 import SplashScreen from '../screens/splash/SplashScreen';
 import RegistrationScreen from '../screens/auth/RegistrationScreen';
@@ -30,6 +31,7 @@ export default function RootNavigator() {
                 {isAuthenticated ? (
                     <>
                         <Stack.Screen name="Main" component={MainTabNavigator} />
+                        <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
                         <Stack.Screen name="Register" component={RegistrationScreen} options={{ headerShown: true, title: 'Partner Registration' }} />
                         <Stack.Screen name="VerificationPending" component={VerificationPendingScreen} options={{ headerShown: false }} />
                         <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />

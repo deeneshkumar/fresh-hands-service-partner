@@ -36,7 +36,7 @@ export const JobProvider = ({ children }) => {
     const [timerId, setTimerId] = useState(null);
 
     const simulateIncomingJob = () => {
-        if (activeJob) return; // Don't send if busy
+        if (activeJob || incomingJob) return; // Don't send if busy or already have one
 
         const mockJob = {
             id: 'j' + Date.now(),
@@ -46,15 +46,20 @@ export const JobProvider = ({ children }) => {
             address: 'Flat 402, Sunshine Apts, Sector 45',
             earnings: 350,
             status: 'NEW_REQUEST',
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            // Location coordinates for Maps
+            customerCoords: {
+                latitude: 28.4595,
+                longitude: 77.0266,
+            },
+            partnerCoords: { // Starting point for simulation
+                latitude: 28.4495,
+                longitude: 77.0166,
+            },
+            distance: '2.5 km',
+            eta: '12 mins'
         };
         setIncomingJob(mockJob);
-
-        // Auto-cancel after 30 seconds if not accepted
-        const id = setTimeout(() => {
-            setIncomingJob(null);
-        }, 30000);
-        setTimerId(id);
     };
 
     const acceptJob = () => {

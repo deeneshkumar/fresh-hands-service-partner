@@ -1,9 +1,10 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, Briefcase, Wallet, User } from 'lucide-react-native';
+import { Home, Briefcase, Wallet, User, IndianRupee } from 'lucide-react-native';
 import DashboardScreen from '../screens/main/DashboardScreen';
 import JobsScreen from '../screens/main/JobsScreen';
 import WalletScreen from '../screens/main/WalletScreen';
+import EarningsScreen from '../screens/main/EarningsScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 import { COLORS } from '../constants/colors';
 
@@ -30,6 +31,13 @@ export default function MainTabNavigator() {
                 component={JobsScreen}
                 options={{
                     tabBarIcon: ({ color }) => <Briefcase color={color} size={24} />
+                }}
+            />
+            <Tab.Screen
+                name="Earnings"
+                component={EarningsScreen}
+                options={{
+                    tabBarIcon: ({ color }) => <IndianRupee color={color} size={24} />
                 }}
             />
             <Tab.Screen

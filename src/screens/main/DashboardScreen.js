@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Switch, ScrollView, Modal, TouchableOpacity, Di
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { THEME } from '../../constants/theme';
-import { Briefcase, IndianRupee, Star, MapPin, Clock, ShieldCheck, ChevronRight, Gift, TrendingUp, Users, Bell, User } from 'lucide-react-native';
+import { Briefcase, IndianRupee, Star, MapPin, Clock, ShieldCheck, ChevronRight, Gift, TrendingUp, Users, Bell, User, X } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useJob } from '../../context/JobContext';
 import Button from '../../components/Button';
@@ -14,44 +14,39 @@ const { width } = Dimensions.get('window');
 export default function DashboardScreen({ navigation }) {
     const { user, isDutyOn, toggleDuty, partnerStatus, setPartnerStatus, logout } = useAuth();
     const { activeJob, incomingJob, acceptJob, rejectJob, simulateIncomingJob, jobHistory } = useJob();
-    const [secondsLeft, setSecondsLeft] = useState(30);
+    const [isRequestModalVisible, setIsRequestModalVisible] = useState(false);
+
+    useEffect(() => {
+        if (incomingJob) {
+            setIsRequestModalVisible(true);
+        }
+    }, [incomingJob]);
+
+    const handleViewDetails = () => {
+        setIsRequestModalVisible(false);
+        navigation.navigate('Jobs');
+    };
+
+    const handleCloseModal = () => {
+        setIsRequestModalVisible(false);
+    };
 
     const isVerified = partnerStatus === 'APPROVED';
     const isUnregistered = partnerStatus === 'UNREGISTERED';
     const isPending = partnerStatus === 'PENDING_VERIFICATION';
 
-    // Timer for incoming job modal
-    useEffect(() => {
-        let interval;
-        if (incomingJob) {
-            setSecondsLeft(30);
-            interval = setInterval(() => {
-                setSecondsLeft((prev) => {
-                    if (prev <= 1) {
-                        rejectJob(); // Auto reject
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-        }
-        return () => clearInterval(interval);
-    }, [incomingJob]);
-
-    const handleAccept = () => {
-        acceptJob();
-        navigation.navigate('Jobs');
-    };
-
     const handleToggleDuty = () => {
-        if (!isVerified) return;
+        if (!isVerified) {
+            Alert.alert("Registration Required", "Please complete your partner registration to go online.");
+            return;
+        }
         toggleDuty();
     };
 
     // --- SUB COMPONENTS ---
 
-    const MarketingCard = ({ icon: Icon, title, desc, color }) => (
-        <View style={styles.marketingCard}>
+    const MarketingCard = ({ icon: Icon, title, desc, color, style }) => (
+        <View style={[styles.marketingCard, style]}>
             <View style={[styles.mIconBox, { backgroundColor: color + '20' }]}>
                 <Icon color={color} size={24} />
             </View>
@@ -119,7 +114,6 @@ export default function DashboardScreen({ navigation }) {
             <TouchableOpacity
                 style={[styles.debugBtn, { marginTop: 8, backgroundColor: COLORS.error }]}
                 onPress={() => {
-                    // Hard Reset
                     logout();
                     alert('App Reset. Please login again.');
                 }}
@@ -128,11 +122,6 @@ export default function DashboardScreen({ navigation }) {
             </TouchableOpacity>
         </View>
     );
-
-    // --- SUB COMPONENTS ---
-
-    // DashboardHeader is now imported
-
 
     const GuestDashboard = () => (
         <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -172,6 +161,30 @@ export default function DashboardScreen({ navigation }) {
     const ProfessionalDashboard = () => (
         <ScrollView contentContainerStyle={styles.scrollContent}>
             <DashboardHeader />
+
+            {/* Status Toggle */}
+            <View style={styles.headerStatusContainer}>
+                <View style={styles.statusInner}>
+                    <View style={styles.statusIndicator}>
+                        <View style={[styles.statusDot, { backgroundColor: isDutyOn ? COLORS.success : COLORS.error }]} />
+                        <View>
+                            <Text style={styles.statusLabel}>
+                                {isDutyOn ? 'You are Online' : 'You are Offline'}
+                            </Text>
+                            <Text style={styles.statusTagline}>
+                                {isDutyOn ? 'Ready for new job requests' : 'Off-duty: Enjoy your break'}
+                            </Text>
+                        </View>
+                    </View>
+                    <Switch
+                        value={isDutyOn}
+                        onValueChange={handleToggleDuty}
+                        trackColor={{ false: COLORS.border, true: COLORS.success }}
+                        thumbColor={COLORS.white}
+                    />
+                </View>
+            </View>
+
             <View style={styles.content}>
                 <View style={styles.statsRow}>
                     <StatCard
@@ -179,32 +192,59 @@ export default function DashboardScreen({ navigation }) {
                         title="Today's Earnings"
                         value={`₹${jobHistory.filter(j => j.date === new Date().toISOString().split('T')[0]).reduce((acc, curr) => acc + curr.amount, 0)}`}
                         color={COLORS.primary}
+                        onPress={() => navigation.navigate('Earnings')}
                     />
                     <StatCard
                         icon={Briefcase}
                         title="Jobs Done"
                         value={jobHistory.filter(j => j.date === new Date().toISOString().split('T')[0]).length.toString()}
                         color={COLORS.secondary}
+                        onPress={() => navigation.navigate('Jobs')}
                     />
                 </View>
 
                 <View style={styles.ratingCard}>
-                    <Text style={styles.ratingTitle}>Your Rating</Text>
+                    <Text style={styles.ratingTitle}>Your Performance</Text>
                     <View style={styles.ratingRow}>
-                        <Text style={styles.ratingValue}>{user?.rating || 'NEW'}</Text>
-                        <View style={{ flexDirection: 'row', marginLeft: 8 }}>
-                            {[1, 2, 3, 4, 5].map(i => (
-                                <Star
-                                    key={i}
-                                    size={16}
-                                    fill={i <= Math.round(user?.rating || 0) ? COLORS.warning : 'transparent'}
-                                    color={COLORS.warning}
-                                />
-                            ))}
+                        <Text style={styles.ratingValue}>{user?.rating || '4.8'}</Text>
+                        <Star color="#FFD700" size={32} fill="#FFD700" style={{ marginLeft: 8 }} />
+                    </View>
+                    <Text style={styles.ratingSub}>Top Tier Partner • 98% Job Success</Text>
+                    <Text style={styles.ratingTagline}>You're doing great! Keep it up! ✨</Text>
+                </View>
+
+                {incomingJob && !activeJob && (
+                    <View style={styles.pendingRequestCard}>
+                        <View style={styles.pendingHeader}>
+                            <View style={styles.requestBadge}>
+                                <Text style={styles.requestBadgeText}>NEW REQUEST</Text>
+                            </View>
+                            <TouchableOpacity onPress={rejectJob}>
+                                <X size={20} color={COLORS.textLight} />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.pendingBody}>
+                            <View>
+                                <Text style={styles.pendingService}>{incomingJob.service}</Text>
+                                <Text style={styles.pendingCustomer}>{incomingJob.customer} • {incomingJob.distance || '2.5 km'}</Text>
+                            </View>
+                            <View style={styles.pendingPriceTag}>
+                                <Text style={styles.pendingPriceText}>₹{incomingJob.earnings}</Text>
+                            </View>
+                        </View>
+                        <View style={styles.pendingActions}>
+                            <TouchableOpacity style={styles.pendingRejectBtn} onPress={rejectJob}>
+                                <Text style={styles.pendingRejectText}>Reject</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.pendingDetailsBtn}
+                                onPress={handleViewDetails}
+                            >
+                                <Text style={styles.pendingDetailsText}>Job Details</Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
-                    <Text style={styles.ratingSub}>Based on last 50 jobs</Text>
-                </View>
+                )}
 
                 <View style={styles.section}>
                     {activeJob ? (
@@ -226,16 +266,16 @@ export default function DashboardScreen({ navigation }) {
         </ScrollView>
     );
 
-    const StatCard = ({ icon: Icon, title, value, color }) => (
-        <View style={styles.statCard}>
+    const StatCard = ({ icon: Icon, title, value, color, onPress }) => (
+        <TouchableOpacity style={styles.statCard} onPress={onPress}>
             <View style={[styles.iconBox, { backgroundColor: color }]}>
                 <Icon color={COLORS.white} size={20} />
             </View>
-            <View>
-                <Text style={styles.statValue}>{value}</Text>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
                 <Text style={styles.statTitle}>{title}</Text>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 
     const ActiveJobCard = ({ job }) => (
@@ -272,23 +312,20 @@ export default function DashboardScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Main Content Switch */}
             {isVerified ? <ProfessionalDashboard /> : <GuestDashboard />}
 
-            {/* Incoming Job Modal (Only active if Verified & Online) */}
             <Modal
-                visible={!!incomingJob && isVerified}
+                visible={isRequestModalVisible && !!incomingJob && isVerified}
                 transparent
                 animationType="slide"
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <View style={styles.timerBar}>
-                            <View style={[styles.timerFill, { width: `${(secondsLeft / 30) * 100}%` }]} />
-                        </View>
+                        <TouchableOpacity style={styles.closeModalBtn} onPress={handleCloseModal}>
+                            <X size={24} color={COLORS.text} />
+                        </TouchableOpacity>
 
                         <Text style={styles.modalTitle}>New Job Request!</Text>
-                        <Text style={styles.timerText}>Auto-reject in {secondsLeft}s</Text>
 
                         {incomingJob && (
                             <View style={styles.jobPreview}>
@@ -301,11 +338,8 @@ export default function DashboardScreen({ navigation }) {
                         )}
 
                         <View style={styles.modalActions}>
-                            <TouchableOpacity style={styles.rejectBtn} onPress={rejectJob}>
-                                <Text style={styles.rejectText}>Reject</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.acceptBtn} onPress={handleAccept}>
-                                <Text style={styles.acceptText}>Accept Job</Text>
+                            <TouchableOpacity style={styles.detailsBtnFull} onPress={handleViewDetails}>
+                                <Text style={styles.acceptText}>Job Details</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -320,82 +354,34 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: COLORS.background,
     },
-    header: {
-        paddingHorizontal: THEME.spacing.m,
-        paddingTop: 15, // More top padding for safe area
-        paddingBottom: -15,
+    scrollContent: {
+        flexGrow: 1,
+    },
+    content: {
+        padding: THEME.spacing.m,
+        paddingBottom: 40,
+    },
+    headerStatusContainer: {
         backgroundColor: COLORS.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        paddingHorizontal: THEME.spacing.m,
+        paddingBottom: 12,
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
         elevation: 4,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
         shadowRadius: 4,
     },
-    headerTop: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    profileSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    avatarContainer: {
-        width: 45,
-        height: 45,
-        borderRadius: 22.5,
-        backgroundColor: COLORS.primaryLight + '40',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: COLORS.primaryLight,
-    },
-    greeting: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.text,
-    },
-    locationRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 2,
-    },
-    locationText: {
-        fontSize: 12,
-        color: COLORS.textLight,
-        marginLeft: 4,
-    },
-    notificationBtn: {
-        padding: 8,
-        backgroundColor: COLORS.background,
-        borderRadius: 12,
-        position: 'relative',
-    },
-    redDot: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: COLORS.error,
-        zIndex: 2,
-        borderWidth: 1,
-        borderColor: COLORS.surface,
-    },
-    statusContainer: {
+    statusInner: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         backgroundColor: COLORS.background,
         padding: 12,
         borderRadius: 12,
-        marginTop: 4,
     },
-    statusTextContainer: {
+    statusIndicator: {
         flexDirection: 'row',
         alignItems: 'center',
     },
@@ -407,23 +393,13 @@ const styles = StyleSheet.create({
     },
     statusLabel: {
         fontSize: 14,
-        fontWeight: '600',
-        color: COLORS.text,
-    },
-    scrollContent: {
-        padding: 0,
-        flexGrow: 1,
-    },
-    content: {
-        padding: THEME.spacing.m,
-        paddingBottom: 40,
-    },
-    sectionHeader: {
-        fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.text,
-        marginBottom: THEME.spacing.m,
-        marginTop: 8,
+    },
+    statusTagline: {
+        fontSize: 11,
+        color: COLORS.textLight,
+        marginTop: 1,
     },
     greetingText: {
         fontSize: 24,
@@ -432,30 +408,21 @@ const styles = StyleSheet.create({
         marginBottom: THEME.spacing.m,
         marginTop: 8,
     },
-
-    // Guest Dashboard Styles
     regBanner: {
-        backgroundColor: COLORS.primary, // Make it pop with primary color background? No, lets stick to white with accent
         backgroundColor: COLORS.white,
         padding: 24,
         borderRadius: 16,
         marginBottom: 24,
         elevation: 4,
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
         alignItems: 'center',
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.05)',
     },
     regHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 16,
         backgroundColor: COLORS.primaryLight + '40',
         padding: 12,
         borderRadius: 40,
+        marginBottom: 16,
     },
     regTitle: {
         fontSize: 26,
@@ -470,22 +437,22 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: 24,
         lineHeight: 22,
-        paddingHorizontal: 16,
     },
     marketingCard: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: COLORS.white,
         padding: 16,
-        borderRadius: 12,
-        marginBottom: 12,
+        borderRadius: 16,
+        marginBottom: 16,
         borderWidth: 1,
         borderColor: COLORS.border,
-        elevation: 1,
+        // Responsive Shadow
+        elevation: 4,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
     },
     mIconBox: {
         width: 48,
@@ -498,15 +465,17 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         color: COLORS.text,
-        marginBottom: 2,
+        marginBottom: 4,
+        flexWrap: 'wrap',
     },
     mDesc: {
-        fontSize: 13,
+        fontSize: 14,
         color: COLORS.textLight,
-        lineHeight: 18,
+        lineHeight: 20,
+        flexWrap: 'wrap',
     },
     verificationCard: {
-        backgroundColor: '#FFF8E1', // Warmer yellow
+        backgroundColor: '#FFF8E1',
         borderColor: '#FFE082',
         borderWidth: 1,
         borderRadius: 12,
@@ -523,12 +492,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#F57F17',
         marginLeft: 8,
-    },
-    verificationText: {
-        color: '#F57F17',
-        lineHeight: 20,
-        fontSize: 14,
-        marginTop: 12,
     },
     stepsContainer: {
         marginVertical: 12,
@@ -553,21 +516,23 @@ const styles = StyleSheet.create({
     stepText: {
         fontSize: 14,
     },
+    verificationText: {
+        color: '#F57F17',
+        fontSize: 14,
+        lineHeight: 20,
+    },
     debugBtn: {
         marginTop: 16,
         backgroundColor: '#F57F17',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 6,
-        alignSelf: 'flex-start',
     },
     debugBtnText: {
         color: COLORS.white,
         fontWeight: 'bold',
         fontSize: 12,
     },
-
-    // Prof Dashboard Styles
     statsRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -581,10 +546,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
     },
     iconBox: {
         width: 40,
@@ -602,7 +563,6 @@ const styles = StyleSheet.create({
     statTitle: {
         fontSize: 12,
         color: COLORS.textLight,
-        marginTop: 2,
     },
     ratingCard: {
         backgroundColor: COLORS.surface,
@@ -610,15 +570,6 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         marginBottom: THEME.spacing.m,
         elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-    },
-    ratingTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: COLORS.text,
     },
     ratingRow: {
         flexDirection: 'row',
@@ -631,69 +582,133 @@ const styles = StyleSheet.create({
         color: COLORS.text,
     },
     ratingSub: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: COLORS.text,
+    },
+    ratingTagline: {
         fontSize: 12,
+        fontStyle: 'italic',
         color: COLORS.textLight,
+    },
+    pendingRequestCard: {
+        backgroundColor: '#FFF9F1',
+        borderRadius: 20,
+        padding: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#FFD180',
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    pendingHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    requestBadge: {
+        backgroundColor: '#FF9100',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    requestBadgeText: {
+        color: COLORS.white,
+        fontSize: 10,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+    },
+    pendingBody: {
+        marginBottom: 4,
+    },
+    pendingService: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#001F3F',
+        marginBottom: 2,
+    },
+    pendingCustomer: {
+        fontSize: 14,
+        color: '#546E7A',
+        marginBottom: 8,
+    },
+    pendingPriceTag: {
+        backgroundColor: '#2E7D32',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        marginVertical: 8,
+        width: '100%',
+    },
+    pendingPriceText: {
+        color: COLORS.white,
+        fontWeight: '900',
+        fontSize: 16,
+    },
+    pendingActions: {
+        flexDirection: 'row',
+        gap: 10,
         marginTop: 4,
     },
-    section: {
-        marginTop: 8,
-    },
-    emptyJob: {
-        backgroundColor: COLORS.surface,
-        padding: 32,
-        borderRadius: 16,
+    pendingRejectBtn: {
+        flex: 1,
+        borderWidth: 1.5,
+        borderColor: '#D32F2F',
+        paddingVertical: 10,
         alignItems: 'center',
-        borderStyle: 'dashed',
-        borderWidth: 2,
-        borderColor: COLORS.border,
-        marginTop: 8,
+        borderRadius: 12,
+        backgroundColor: 'transparent',
     },
-    emptyText: {
-        color: COLORS.textLight,
-        marginBottom: 16,
-        fontSize: 16,
+    pendingRejectText: {
+        color: '#D32F2F',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    pendingDetailsBtn: {
+        flex: 1.8,
+        backgroundColor: '#004D40',
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 12,
+    },
+    pendingDetailsText: {
+        color: COLORS.white,
+        fontWeight: 'bold',
+        fontSize: 14,
     },
     activeJobCard: {
         backgroundColor: COLORS.surface,
-        borderRadius: 16,
         padding: 16,
-        elevation: 4,
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        borderLeftWidth: 6,
-        borderLeftColor: COLORS.primary,
+        borderRadius: 16,
+        elevation: 3,
     },
     activeJobHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 12,
     },
     activeJobTitle: {
-        fontWeight: 'bold',
         fontSize: 16,
-        color: COLORS.text,
+        fontWeight: 'bold',
     },
     statusBadge: {
         backgroundColor: COLORS.primaryLight,
-        paddingHorizontal: 10,
+        paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 8,
     },
     statusText: {
-        color: COLORS.primary,
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: 'bold',
-    },
-    jobDetails: {
-        marginBottom: 16,
+        color: COLORS.primary,
     },
     serviceName: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: COLORS.text,
         marginBottom: 4,
     },
     customerName: {
@@ -704,134 +719,110 @@ const styles = StyleSheet.create({
     detailRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 6,
+        marginBottom: 4,
     },
     detailText: {
         marginLeft: 8,
+        fontSize: 13,
         color: COLORS.text,
-        fontSize: 14,
     },
     viewJobBtn: {
+        marginTop: 16,
         backgroundColor: COLORS.primary,
-        padding: 14,
-        borderRadius: 12,
+        paddingVertical: 12,
         alignItems: 'center',
+        borderRadius: 12,
     },
     viewJobText: {
         color: COLORS.white,
         fontWeight: 'bold',
-        fontSize: 16,
+    },
+    emptyJob: {
+        padding: 32,
+        alignItems: 'center',
+        borderStyle: 'dashed',
+        borderWidth: 2,
+        borderColor: COLORS.border,
+        borderRadius: 16,
+    },
+    emptyText: {
+        color: COLORS.textLight,
+        textAlign: 'center',
     },
     testBtn: {
-        backgroundColor: COLORS.secondary,
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 24,
+        marginTop: 12,
+        backgroundColor: COLORS.primaryLight,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
     },
     testBtnText: {
-        color: COLORS.white,
+        color: COLORS.primary,
         fontWeight: 'bold',
-        fontSize: 14,
     },
-
-    // Modal Styles
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        padding: 20,
     },
     modalContent: {
         backgroundColor: COLORS.white,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        borderRadius: 24,
         padding: 24,
-        paddingBottom: 40,
-        elevation: 10,
     },
-    timerBar: {
-        height: 6,
-        backgroundColor: COLORS.border,
-        borderRadius: 3,
-        marginBottom: 24,
-        overflow: 'hidden',
-    },
-    timerFill: {
-        height: '100%',
-        backgroundColor: COLORS.error,
+    closeModalBtn: {
+        alignSelf: 'flex-end',
     },
     modalTitle: {
-        fontSize: 24,
+        fontSize: 22,
         fontWeight: 'bold',
-        color: COLORS.text,
         textAlign: 'center',
-        marginBottom: 8,
-    },
-    timerText: {
-        textAlign: 'center',
-        color: COLORS.error,
-        fontWeight: 'bold',
-        marginBottom: 24,
     },
     jobPreview: {
         backgroundColor: COLORS.background,
-        padding: 16,
-        borderRadius: 16,
-        marginBottom: 24,
+        padding: 20,
+        borderRadius: 20,
+        marginVertical: 20,
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: COLORS.border,
     },
     jobService: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: 'bold',
-        color: COLORS.text,
-        marginBottom: 8,
     },
     jobLocation: {
-        fontSize: 16,
+        fontSize: 14,
         color: COLORS.textLight,
-        textAlign: 'center',
-        marginBottom: 16,
     },
     priceTag: {
         backgroundColor: COLORS.success,
         paddingHorizontal: 16,
         paddingVertical: 6,
         borderRadius: 20,
+        marginTop: 12,
     },
     priceText: {
         color: COLORS.white,
         fontWeight: 'bold',
-        fontSize: 20,
     },
     modalActions: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        gap: 16,
+        marginTop: 8,
     },
-    rejectBtn: {
-        flex: 1,
-        padding: 16,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: COLORS.error,
+    detailsBtnFull: {
+        backgroundColor: COLORS.primary,
+        paddingVertical: 16,
         alignItems: 'center',
-    },
-    acceptBtn: {
-        flex: 1,
-        backgroundColor: COLORS.success,
-        padding: 16,
-        borderRadius: 14,
-        alignItems: 'center',
-    },
-    rejectText: {
-        color: COLORS.error,
-        fontWeight: 'bold',
-        fontSize: 16,
+        borderRadius: 16,
     },
     acceptText: {
         color: COLORS.white,
         fontWeight: 'bold',
         fontSize: 16,
-    }
+    },
+    sectionHeader: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: COLORS.text,
+        marginBottom: 12,
+    },
 });

@@ -73,6 +73,11 @@ export default function ProfileScreen({ navigation }) {
                 <View style={styles.menu}>
                     <Text style={styles.sectionHeader}>Account</Text>
                     <MenuItem
+                        icon={User}
+                        title="Edit Profile"
+                        onPress={() => navigation.navigate('EditProfile')}
+                    />
+                    <MenuItem
                         icon={FileText}
                         title="My Documents"
                         onPress={handleDocuments}

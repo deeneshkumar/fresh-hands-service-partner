@@ -60,16 +60,26 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(true);
     };
 
-    const registerPartner = async (data) => {
+    const completeUserProfile = async (data) => {
         setIsLoading(true);
-        await delay(2000);
+        await delay(1000);
         const newUser = {
-            id: 'p' + Date.now(),
+            id: 'u' + Date.now(),
             ...data
         };
         setUser(newUser);
-        setPartnerStatus('PENDING_VERIFICATION');
+        setPartnerStatus('UNREGISTERED');
         setIsAuthenticated(true);
+        setIsLoading(false);
+    };
+
+    const registerPartner = async (data) => {
+        setIsLoading(true);
+        await delay(2000);
+        // Merge with existing user data
+        setUser(prev => ({ ...prev, ...data }));
+        setPartnerStatus('PENDING_VERIFICATION');
+        // valid session is maintained
         setIsLoading(false);
     };
 
@@ -102,9 +112,14 @@ export const AuthProvider = ({ children }) => {
             logout,
             sendOtp,
             verifyOtp,
+            verifyOtp,
+            completeUserProfile,
             registerPartner,
             toggleDuty,
-            setPartnerStatus // Exposed for testing/debugging
+            setPartnerStatus, // Exposed for testing/debugging
+            updateUserProfile: (updates) => {
+                setUser(prev => ({ ...prev, ...updates }));
+            }
         }}>
             {children}
         </AuthContext.Provider>
