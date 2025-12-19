@@ -1,25 +1,176 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { THEME } from '../../constants/theme';
 import { MapPin, Calendar, Clock, Phone, Navigation, CheckCircle, ChevronLeft, IndianRupee, Info } from 'lucide-react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { useAuth } from '../../context/AuthContext';
 import { useJob } from '../../context/JobContext';
 
 const { width, height } = Dimensions.get('window');
 
-const BRIGHT_MAP_STYLE = [
-    { "elementType": "geometry", "stylers": [{ "color": "#f5f5f5" }] },
-    { "elementType": "labels.text.fill", "stylers": [{ "color": "#616161" }] },
-    { "elementType": "labels.text.stroke", "stylers": [{ "color": "#f5f5f5" }] },
-    { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#000000" }] },
-    { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "color": "#ffffff" }] },
-    { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#444444" }] },
-    { "featureType": "landscape.man_made", "elementType": "geometry", "stylers": [{ "color": "#333333" }] },
-    { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#e9e9e9" }] },
-    { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#eeeeee" }] }
+const MAP_STYLE = [
+    {
+        "elementType": "geometry",
+        "stylers": [
+            {
+                "color": "#242f3e"
+            }
+        ]
+    },
+    {
+        "elementType": "labels.text.fill",
+        "stylers": [
+            {
+                "color": "#746855"
+            }
+        ]
+    },
+    {
+        "elementType": "labels.text.stroke",
+        "stylers": [
+            {
+                "color": "#242f3e"
+            }
+        ]
+    },
+    {
+        "featureType": "administrative.locality",
+        "elementType": "labels.text.fill",
+        "stylers": [
+            {
+                "color": "#d59563"
+            }
+        ]
+    },
+    {
+        "featureType": "poi",
+        "elementType": "labels.text.fill",
+        "stylers": [
+            {
+                "color": "#d59563"
+            }
+        ]
+    },
+    {
+        "featureType": "poi.park",
+        "elementType": "geometry",
+        "stylers": [
+            {
+                "color": "#263c3f"
+            }
+        ]
+    },
+    {
+        "featureType": "poi.park",
+        "elementType": "labels.text.fill",
+        "stylers": [
+            {
+                "color": "#6b9a76"
+            }
+        ]
+    },
+    {
+        "featureType": "road",
+        "elementType": "geometry",
+        "stylers": [
+            {
+                "color": "#38414e"
+            }
+        ]
+    },
+    {
+        "featureType": "road",
+        "elementType": "geometry.stroke",
+        "stylers": [
+            {
+                "color": "#212a37"
+            }
+        ]
+    },
+    {
+        "featureType": "road",
+        "elementType": "labels.text.fill",
+        "stylers": [
+            {
+                "color": "#9ca5b3"
+            }
+        ]
+    },
+    {
+        "featureType": "road.highway",
+        "elementType": "geometry",
+        "stylers": [
+            {
+                "color": "#746855"
+            }
+        ]
+    },
+    {
+        "featureType": "road.highway",
+        "elementType": "geometry.stroke",
+        "stylers": [
+            {
+                "color": "#1f2835"
+            }
+        ]
+    },
+    {
+        "featureType": "road.highway",
+        "elementType": "labels.text.fill",
+        "stylers": [
+            {
+                "color": "#f3d19c"
+            }
+        ]
+    },
+    {
+        "featureType": "transit",
+        "elementType": "geometry",
+        "stylers": [
+            {
+                "color": "#2f3948"
+            }
+        ]
+    },
+    {
+        "featureType": "transit.station",
+        "elementType": "labels.text.fill",
+        "stylers": [
+            {
+                "color": "#d59563"
+            }
+        ]
+    },
+    {
+        "featureType": "water",
+        "elementType": "geometry",
+        "stylers": [
+            {
+                "color": "#17263c"
+            }
+        ]
+    },
+    {
+        "featureType": "water",
+        "elementType": "labels.text.fill",
+        "stylers": [
+            {
+                "color": "#515c6d"
+            }
+        ]
+    },
+    {
+        "featureType": "water",
+        "elementType": "labels.text.stroke",
+        "stylers": [
+            {
+                "color": "#17263c"
+            }
+        ]
+    }
 ];
 
 export default function JobsScreen({ navigation }) {
@@ -125,50 +276,147 @@ export default function JobsScreen({ navigation }) {
         if (!job) return null;
 
         const { customerCoords } = job;
-        const partnerCoords = job.partnerCoords || { latitude: 28.4495, longitude: 77.0166 };
+        const [partnerCoords, setPartnerCoords] = useState(job.partnerCoords || { latitude: 28.4495, longitude: 77.0166 });
+        const [routeInfo, setRouteInfo] = useState({ distance: job.distance || '0 km', eta: job.eta || '0 min' });
+        const [mapRef, setMapRef] = useState(null);
+
+        // Calculate Distance using Haversine
+        const calculateDistance = (lat1, lon1, lat2, lon2) => {
+            const R = 6371; // Radius of the earth in km
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const d = R * c; // Distance in km
+            return d;
+        };
+
+        const deg2rad = (deg) => {
+            return deg * (Math.PI / 180);
+        }
+
+        useEffect(() => {
+            let locationSubscription = null;
+
+            if (showFullMap) {
+                (async () => {
+                    locationSubscription = await Location.watchPositionAsync(
+                        {
+                            accuracy: Location.Accuracy.High,
+                            timeInterval: 5000,
+                            distanceInterval: 10,
+                        },
+                        (location) => {
+                            const { latitude, longitude } = location.coords;
+                            setPartnerCoords({ latitude, longitude });
+
+                            // Update Info
+                            const dist = calculateDistance(latitude, longitude, customerCoords.latitude, customerCoords.longitude);
+                            setRouteInfo({
+                                distance: `${dist.toFixed(1)} km`,
+                                eta: `${Math.ceil(dist * 3)} mins` // Crude estimation: 20km/h avg speed in city
+                            });
+
+                            // Animate Camera
+                            if (mapRef) {
+                                mapRef.animateCamera({
+                                    center: { latitude, longitude },
+                                    pitch: 45,
+                                    heading: location.coords.heading,
+                                    zoom: 18,
+                                });
+                            }
+                        }
+                    );
+                })();
+            }
+
+            return () => {
+                if (locationSubscription) {
+                    locationSubscription.remove();
+                }
+            };
+        }, [showFullMap, customerCoords]);
+
+
+        const handleNavigateToggle = () => {
+            setShowFullMap(!showFullMap);
+        };
 
         return (
             <View style={[styles.mapContainer, showFullMap && styles.fullMap]}>
+                {showFullMap && (
+                    <View style={styles.navHeader}>
+                        <TouchableOpacity style={styles.navBackBtn} onPress={handleNavigateToggle}>
+                            <ChevronLeft size={24} color={COLORS.white} />
+                        </TouchableOpacity>
+                        <Text style={styles.navTitle}>Navigating to Customer</Text>
+                    </View>
+                )}
+
                 <MapView
                     provider={PROVIDER_GOOGLE}
+                    ref={(ref) => setMapRef(ref)}
                     style={styles.map}
-                    customMapStyle={BRIGHT_MAP_STYLE}
-                    initialRegion={{
+                    customMapStyle={MAP_STYLE}
+                    region={{
                         latitude: partnerCoords.latitude,
                         longitude: partnerCoords.longitude,
                         latitudeDelta: 0.01,
                         longitudeDelta: 0.01,
                     }}
+                    showsUserLocation={true}
+                    followsUserLocation={showFullMap}
                 >
-                    <Marker coordinate={partnerCoords} title="Your Location">
+                    {/* Partner Marker (Custom Icon if needed, or rely on showsUserLocation) */}
+                    <Marker coordinate={partnerCoords} title="You">
                         <View style={styles.partnerMarker}>
-                            <Navigation size={24} color={COLORS.primary} fill={COLORS.primary + '40'} />
+                            <Navigation size={24} color={COLORS.primary} fill={COLORS.primary} />
                         </View>
                     </Marker>
+
+                    {/* Customer Marker */}
+                    <Marker coordinate={customerCoords} title="Customer">
+                        <View style={styles.customerMarker}>
+                            <MapPin size={32} color={COLORS.error} fill={COLORS.white} />
+                        </View>
+                    </Marker>
+
+                    {/* Route Line */}
+                    <Polyline
+                        coordinates={[partnerCoords, customerCoords]}
+                        strokeColor={COLORS.primary}
+                        strokeWidth={4}
+                    />
                 </MapView>
 
-                {job.status === 'ON_THE_WAY' && (
-                    <View style={styles.trackingOverlay}>
-                        <View style={styles.trackingInfo}>
-                            <View style={styles.trackingStat}>
-                                <Text style={styles.trackingLabel}>Distance</Text>
-                                <Text style={styles.trackingValue}>{job.distance}</Text>
-                            </View>
-                            <View style={styles.trackingDivider} />
-                            <View style={styles.trackingStat}>
-                                <Text style={styles.trackingLabel}>ETA</Text>
-                                <Text style={styles.trackingValue}>{job.eta}</Text>
-                            </View>
+                {/* Tracking Info Overlay */}
+                <View style={styles.trackingOverlay}>
+                    <View style={styles.trackingInfo}>
+                        <View style={styles.trackingStat}>
+                            <Text style={styles.trackingLabel}>Distance</Text>
+                            <Text style={styles.trackingValue}>{routeInfo.distance}</Text>
+                        </View>
+                        <View style={styles.trackingDivider} />
+                        <View style={styles.trackingStat}>
+                            <Text style={styles.trackingLabel}>ETA</Text>
+                            <Text style={styles.trackingValue}>{routeInfo.eta}</Text>
                         </View>
                     </View>
-                )}
+                </View>
 
-                <TouchableOpacity
-                    style={styles.expandBtn}
-                    onPress={() => setShowFullMap(!showFullMap)}
-                >
-                    <Info size={20} color={COLORS.text} />
-                </TouchableOpacity>
+                {!showFullMap && (
+                    <TouchableOpacity
+                        style={styles.expandBtn}
+                        onPress={handleNavigateToggle}
+                    >
+                        <Text style={styles.expandBtnText}>Navigate</Text>
+                        <Navigation size={16} color={COLORS.white} style={{ marginLeft: 6 }} />
+                    </TouchableOpacity>
+                )}
             </View>
         );
     };
@@ -471,21 +719,49 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.border,
         marginHorizontal: 20,
     },
+    navHeader: {
+        position: 'absolute',
+        top: 40,
+        left: 20,
+        right: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        zIndex: 10,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        padding: 12,
+        borderRadius: 12,
+    },
+    navBackBtn: {
+        padding: 4,
+        marginRight: 12,
+    },
+    navTitle: {
+        color: COLORS.white,
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
     expandBtn: {
         position: 'absolute',
-        bottom: 16,
-        right: 16,
-        backgroundColor: COLORS.white,
-        padding: 8,
-        borderRadius: 12,
-        elevation: 4,
+        bottom: 20,
+        right: 20,
+        backgroundColor: COLORS.primary,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 24,
+        elevation: 6,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    expandBtnText: {
+        color: COLORS.white,
+        fontWeight: 'bold',
+        fontSize: 14,
     },
     customerMarker: {
         padding: 4,
     },
     partnerMarker: {
         padding: 4,
-        transform: [{ rotate: '45deg' }],
     },
     activeCard: {
         backgroundColor: COLORS.surface,

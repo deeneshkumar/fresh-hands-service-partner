@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, ScrollView, Modal, TouchableOpacity, Dimensions, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, Switch, ScrollView, Modal, TouchableOpacity, Dimensions, Alert, Image, AppState, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { THEME } from '../../constants/theme';
@@ -8,6 +8,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useJob } from '../../context/JobContext';
 import Button from '../../components/Button';
 import DashboardHeader from '../../components/DashboardHeader';
+import LocationPermissionModal from '../../components/LocationPermissionModal';
+import * as Location from 'expo-location';
 
 const { width } = Dimensions.get('window');
 
@@ -15,6 +17,82 @@ export default function DashboardScreen({ navigation }) {
     const { user, isDutyOn, toggleDuty, partnerStatus, setPartnerStatus, logout } = useAuth();
     const { activeJob, incomingJob, acceptJob, rejectJob, simulateIncomingJob, jobHistory } = useJob();
     const [isRequestModalVisible, setIsRequestModalVisible] = useState(false);
+
+    // Location States
+    const [location, setLocation] = useState(null);
+    const [errorMsg, setErrorMsg] = useState(null);
+    const [address, setAddress] = useState(null);
+    const [showLocationModal, setShowLocationModal] = useState(false);
+
+    useEffect(() => {
+        checkLocationPermission();
+
+        // checking permission again when app comes to foreground
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            if (nextAppState === 'active') {
+                checkLocationPermission();
+            }
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, []);
+
+    const checkLocationPermission = async () => {
+        try {
+            let { status } = await Location.getForegroundPermissionsAsync();
+            if (status === 'granted') {
+                setShowLocationModal(false);
+                fetchLocation();
+            } else {
+                setShowLocationModal(true);
+            }
+        } catch (error) {
+            console.error("Error checking permissions:", error);
+        }
+    };
+
+    const handleAllowLocation = async () => {
+        // We DO NOT close the modal immediately. We wait for the result.
+        let { status } = await Location.requestForegroundPermissionsAsync();
+
+        if (status === 'granted') {
+            setShowLocationModal(false);
+            fetchLocation();
+        } else {
+            // Permission denied - Keep modal open and show alert to go to settings
+            Alert.alert(
+                "Permission Required",
+                "Fresh Hands requires location access to function. Please enable it in your device settings.",
+                [
+                    { text: "Open Settings", onPress: () => Linking.openSettings() }
+                ]
+            );
+        }
+    };
+
+    const fetchLocation = async () => {
+        try {
+            let location = await Location.getCurrentPositionAsync({});
+            setLocation(location);
+
+            // Reverse Geocode
+            let addressResponse = await Location.reverseGeocodeAsync({
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude
+            });
+
+            if (addressResponse && addressResponse.length > 0) {
+                const addr = addressResponse[0];
+                const formattedAddress = `${addr.district || addr.city || addr.subregion}, ${addr.region || ''}`;
+                setAddress(formattedAddress);
+            }
+        } catch (error) {
+            console.log("Error fetching location:", error);
+            setErrorMsg('Location unavailable');
+        }
+    };
 
     useEffect(() => {
         if (incomingJob) {
@@ -125,7 +203,7 @@ export default function DashboardScreen({ navigation }) {
 
     const GuestDashboard = () => (
         <ScrollView contentContainerStyle={styles.scrollContent}>
-            <DashboardHeader />
+            <DashboardHeader location={address} />
             <View style={styles.content}>
                 <Text style={styles.greetingText} numberOfLines={1} adjustsFontSizeToFit>
                     <Text style={{ color: '#E65100', fontSize: 28 }}>Glad to see you,</Text> Let's earn ! {user?.name?.split(' ')[0] || 'Partner'}
@@ -160,7 +238,7 @@ export default function DashboardScreen({ navigation }) {
 
     const ProfessionalDashboard = () => (
         <ScrollView contentContainerStyle={styles.scrollContent}>
-            <DashboardHeader />
+            <DashboardHeader location={address} />
 
             {/* Status Toggle */}
             <View style={styles.headerStatusContainer}>
@@ -345,6 +423,11 @@ export default function DashboardScreen({ navigation }) {
                     </View>
                 </View>
             </Modal>
+
+            <LocationPermissionModal
+                visible={showLocationModal}
+                onAllow={handleAllowLocation}
+            />
         </SafeAreaView>
     );
 }
@@ -785,6 +868,9 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         marginVertical: 20,
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        width: '100%',
     },
     jobService: {
         fontSize: 20,

@@ -5,7 +5,7 @@ import { THEME } from '../constants/theme';
 import { MapPin, Bell, User } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 
-export default function DashboardHeader() {
+export default function DashboardHeader({ location }) {
     const { user, isDutyOn, toggleDuty, partnerStatus } = useAuth();
     const isVerified = partnerStatus === 'APPROVED';
 
@@ -25,7 +25,9 @@ export default function DashboardHeader() {
                         <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0] || 'Partner'}</Text>
                         <View style={styles.locationRow}>
                             <MapPin size={12} color={COLORS.textLight} />
-                            <Text style={styles.locationText}>Chennai, India</Text>
+                            <Text style={styles.locationText} numberOfLines={1}>
+                                {location || 'Locating...'}
+                            </Text>
                         </View>
                     </View>
                 </View>

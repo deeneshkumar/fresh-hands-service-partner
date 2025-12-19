@@ -17,11 +17,11 @@ export default function CompleteProfileScreen({ navigation, route }) {
     const [name, setName] = useState('');
     const [ageCategory, setAgeCategory] = useState('');
     const [gender, setGender] = useState('');
-    const [address, setAddress] = useState('');
+    const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleComplete = async () => {
-        if (!name || !ageCategory || !gender || !address) {
+        if (!name || !ageCategory || !gender) {
             Alert.alert("Required Fields", "Please fill in all details to continue.");
             return;
         }
@@ -32,8 +32,7 @@ export default function CompleteProfileScreen({ navigation, route }) {
                 name,
                 ageCategory,
                 gender,
-                address,
-                address,
+                email,
                 phone: phone || user?.phone
             });
             // Auto navigates to Dashboard as authentication state changes
@@ -71,16 +70,6 @@ export default function CompleteProfileScreen({ navigation, route }) {
                         </Text>
                     </View>
 
-                    {/* Mobile Number (Read Only) */}
-                    <View style={[styles.section, { marginBottom: 6 }]}>
-                        <Text style={styles.label}>Mobile Number <Text style={styles.required}>*</Text></Text>
-                        <Input
-                            value={phone || user?.phone || ''}
-                            editable={false}
-                            style={{ backgroundColor: COLORS.surface, color: COLORS.textLight }}
-                        />
-                    </View>
-
                     {/* Name */}
                     <View style={[styles.section, { marginBottom: 6 }]}>
                         <Text style={styles.label}>Full Name <Text style={styles.required}>*</Text></Text>
@@ -93,16 +82,15 @@ export default function CompleteProfileScreen({ navigation, route }) {
                         />
                     </View>
 
-                    {/* Address */}
+                    {/* Email (Optional) */}
                     <View style={[styles.section, { marginBottom: 6 }]}>
-                        <Text style={styles.label}>Address <Text style={styles.required}>*</Text></Text>
+                        <Text style={styles.label}>Email <Text style={styles.required}>(Optional)</Text></Text>
                         <Input
-                            placeholder="Enter your full address"
-                            value={address}
-                            onChangeText={setAddress}
-                            multiline
-                            numberOfLines={3}
-                            style={{ height: 50, textAlignVertical: 'top' }}
+                            placeholder="Enter your email address"
+                            value={email}
+                            onChangeText={setEmail}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
                         />
                     </View>
 

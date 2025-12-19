@@ -28,10 +28,16 @@
         "googleMaps": {
           "apiKey": "AIzaSyBuX657sYPF95QcL3s6foeSAAO-QdhdHIQ"
         }
-      }
+      },
+      "package": "com.deenesh12.freshhandsservicepartner"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "08d47aaf-9437-422f-aa4d-18eb3d53c290"
+      }
     }
   }
 }

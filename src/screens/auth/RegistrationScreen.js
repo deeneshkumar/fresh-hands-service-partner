@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, SectionList, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, SectionList, FlatList, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { THEME } from '../../constants/theme';
@@ -17,6 +17,8 @@ const STEPS = [
     { id: 5, title: "Skills", icon: Award },
     { id: 6, title: "Bank", icon: CreditCard },
 ];
+
+const EXPERIENCE_OPTIONS = ['1 Year', '2 Years', '3 Years', '4 Years', '5+ Years'];
 
 const SERVICES_DATA = [
     { title: 'Cleaning', data: ['Home Cleaner (Full)', 'Kitchen Cleaning', 'Bathroom Cleaning'] },
@@ -36,11 +38,15 @@ export default function RegistrationScreen({ route, navigation }) {
     const phone = route?.params?.phone || user?.phone || '+919876543210';
     const [currentStep, setCurrentStep] = useState(1);
     const [serviceModalVisible, setServiceModalVisible] = useState(false);
+    const [experienceModalVisible, setExperienceModalVisible] = useState(false);
 
     const [form, setForm] = useState({
         name: user?.name || '',
-        address: user?.address || '',
+        houseNo: '',
+        street: '',
+        pincode: '',
         city: user?.city || '',
+        // address: user?.address || '', // Replaced by detailed fields
         category: '',
         serviceArea: '', // New field
         experience: '',
@@ -68,8 +74,8 @@ export default function RegistrationScreen({ route, navigation }) {
     const validateStep = (step) => {
         switch (step) {
             case 1:
-                if (!form.name || !form.address || !form.city) {
-                    Alert.alert("Missing Details", "Please fill in all personal details.");
+                if (!form.name || !form.houseNo || !form.street || !form.city || !form.pincode) {
+                    Alert.alert("Missing Details", "Please fill in all address details including House No, Area, City and Pincode.");
                     return false;
                 }
                 return true;
@@ -151,8 +157,11 @@ export default function RegistrationScreen({ route, navigation }) {
     const handleSubmit = async () => {
         if (!validateStep(6)) return;
 
+        // Concatenate address for backend compatibility
+        const fullAddress = `${form.houseNo}, ${form.street}, ${form.city} - ${form.pincode}`;
+
         try {
-            await registerPartner({ ...form, phone });
+            await registerPartner({ ...form, address: fullAddress, phone });
             // Success logic is handled by AuthContext or we navigate manually
             Alert.alert(
                 "Application Submitted",
@@ -178,22 +187,37 @@ export default function RegistrationScreen({ route, navigation }) {
                             onChangeText={(t) => updateForm('name', t)}
                             maxLength={25}
                         />
-                        <Input
-                            label="Full Address"
-                            placeholder="Current Address"
-                            value={form.address}
-                            onChangeText={(t) => updateForm('address', t)}
-                            multiline
-                            maxLength={100}
 
-                            style={{ minHeight: 80, maxHeight: 100, textAlignVertical: 'top' }}
+                        <Text style={styles.label}>Address Details</Text>
+                        <Input
+                            placeholder="Apartment, House, or Flat Number"
+                            value={form.houseNo}
+                            onChangeText={(t) => updateForm('houseNo', t)}
                         />
                         <Input
-                            label="City"
-                            placeholder="Current city"
-                            value={form.city}
-                            onChangeText={(t) => updateForm('city', t)}
+                            placeholder="Area, Street, Sector"
+                            value={form.street}
+                            onChangeText={(t) => updateForm('street', t)}
                         />
+
+                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                            <View style={{ flex: 1 }}>
+                                <Input
+                                    placeholder="City"
+                                    value={form.city}
+                                    onChangeText={(t) => updateForm('city', t)}
+                                />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Input
+                                    placeholder="Pincode"
+                                    value={form.pincode}
+                                    onChangeText={(t) => updateForm('pincode', t)}
+                                    keyboardType="numeric"
+                                    maxLength={6}
+                                />
+                            </View>
+                        </View>
                     </View>
                 );
             case 2:
@@ -212,6 +236,7 @@ export default function RegistrationScreen({ route, navigation }) {
                             <ChevronDown size={20} color={COLORS.textLight} />
                         </TouchableOpacity>
 
+
                         <Input
                             label="Preferred Service Area"
                             placeholder="e.g. Anna Nagar, T. Nagar"
@@ -219,13 +244,17 @@ export default function RegistrationScreen({ route, navigation }) {
                             onChangeText={(t) => updateForm('serviceArea', t)}
                         />
 
-                        <Input
-                            label="Experience (Years)"
-                            placeholder="e.g. 2"
-                            keyboardType="numeric"
-                            value={form.experience}
-                            onChangeText={(t) => updateForm('experience', t)}
-                        />
+                        <Text style={styles.label}>Experience</Text>
+                        <TouchableOpacity
+                            style={styles.dropdownSelector}
+                            onPress={() => setExperienceModalVisible(true)}
+                        >
+                            <Text style={[styles.dropdownText, !form.experience && { color: COLORS.textLight }]}>
+                                {form.experience || "Select Experience"}
+                            </Text>
+                            <ChevronDown size={20} color={COLORS.textLight} />
+                        </TouchableOpacity>
+
                         <View style={styles.infoBox}>
                             <Text style={styles.infoText}>
                                 Tip: Partners with more detailed profiles get 2x more job requests.
@@ -547,6 +576,46 @@ export default function RegistrationScreen({ route, navigation }) {
                                         form.category === item && styles.optionTextSelected
                                     ]}>{item}</Text>
                                     {form.category === item && <Check size={20} color={COLORS.primary} />}
+                                </TouchableOpacity>
+                            )}
+                            contentContainerStyle={{ paddingBottom: 20 }}
+                        />
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Experience Selection Modal */}
+            <Modal
+                visible={experienceModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setExperienceModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Select Experience</Text>
+                            <TouchableOpacity onPress={() => setExperienceModalVisible(false)} style={styles.closeButton}>
+                                <X size={24} color={COLORS.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <FlatList
+                            data={EXPERIENCE_OPTIONS}
+                            keyExtractor={(item) => item}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    style={styles.optionItem}
+                                    onPress={() => {
+                                        updateForm('experience', item);
+                                        setExperienceModalVisible(false);
+                                    }}
+                                >
+                                    <Text style={[
+                                        styles.optionText,
+                                        form.experience === item && styles.optionTextSelected
+                                    ]}>{item}</Text>
+                                    {form.experience === item && <Check size={20} color={COLORS.primary} />}
                                 </TouchableOpacity>
                             )}
                             contentContainerStyle={{ paddingBottom: 20 }}
