@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { THEME } from '../../constants/theme';
-import { IndianRupee, ArrowUpRight, ArrowDownLeft, Clock, Plus, Landmark, Briefcase, PlusCircle } from 'lucide-react-native';
+import { IndianRupee, ArrowUpRight, ArrowDownLeft, Clock, Plus, Landmark, Briefcase, PlusCircle, X, ChevronRight } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useJob } from '../../context/JobContext';
 
@@ -13,6 +13,9 @@ export default function WalletScreen({ navigation }) {
     const { user, partnerStatus } = useAuth();
     const { jobHistory } = useJob();
 
+    const [isWithdrawModalVisible, setIsWithdrawModalVisible] = useState(false);
+    const [withdrawAmount, setWithdrawAmount] = useState('');
+    const [step, setStep] = useState(1); // 1: Input, 2: Confirm
 
     // Calculate balance from history (simulated)
     const balance = jobHistory.reduce((acc, curr) => acc + curr.amount, 0);
@@ -24,8 +27,31 @@ export default function WalletScreen({ navigation }) {
         { id: '3', title: 'Job Payout #j99', amount: 300, date: '2025-12-06', status: 'COMPLETED' },
     ];
 
-    const handleWithdraw = () => {
-        Alert.alert("Withdrawal", "Your withdrawal request of ₹" + balance + " has been initiated.");
+    const handleWithdrawClick = () => {
+        setStep(1);
+        setWithdrawAmount('');
+        setIsWithdrawModalVisible(true);
+    };
+
+    const handleNextStep = () => {
+        if (!withdrawAmount || isNaN(withdrawAmount) || parseFloat(withdrawAmount) <= 0) {
+            Alert.alert("Invalid Amount", "Please enter a valid amount to withdraw.");
+            return;
+        }
+        if (parseFloat(withdrawAmount) > balance) {
+            Alert.alert("Insufficient Funds", "You do not have enough balance for this withdrawal.");
+            return;
+        }
+        setStep(2);
+    };
+
+    const confirmWithdrawal = () => {
+        setIsWithdrawModalVisible(false);
+        Alert.alert(
+            "Withdrawal Initiated",
+            `Your request for ₹${withdrawAmount} has been processed.\n\nFunds will be credited to your bank account within 24 hours.`,
+            [{ text: "OK" }]
+        );
     };
 
     if (partnerStatus !== 'APPROVED') {
@@ -68,13 +94,11 @@ export default function WalletScreen({ navigation }) {
                             ₹{balance.toLocaleString('en-IN')}
                         </Text>
 
-                        <TouchableOpacity style={styles.withdrawBtn} onPress={handleWithdraw}>
+                        <TouchableOpacity style={styles.withdrawBtn} onPress={handleWithdrawClick}>
                             <Landmark size={20} color={COLORS.primary} />
                             <Text style={styles.withdrawText}>Withdraw to Bank</Text>
                         </TouchableOpacity>
                     </View>
-
-
 
                     {/* Stats Section */}
                     <View style={styles.statsGrid}>
@@ -115,6 +139,74 @@ export default function WalletScreen({ navigation }) {
                     )}
                 </View>
             </ScrollView>
+
+            {/* WITHDRAWAL MODAL */}
+            <Modal
+                transparent
+                visible={isWithdrawModalVisible}
+                animationType="slide"
+                onRequestClose={() => setIsWithdrawModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Withdraw Funds</Text>
+                            <TouchableOpacity onPress={() => setIsWithdrawModalVisible(false)}>
+                                <X size={24} color={COLORS.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {step === 1 ? (
+                            <View>
+                                <Text style={styles.inputLabel}>Enter Amount</Text>
+                                <View style={styles.inputContainer}>
+                                    <IndianRupee size={20} color={COLORS.text} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="0"
+                                        keyboardType="numeric"
+                                        value={withdrawAmount}
+                                        onChangeText={setWithdrawAmount}
+                                        autoFocus
+                                    />
+                                </View>
+                                <Text style={styles.availableText}>Available Balance: ₹{balance}</Text>
+
+                                <TouchableOpacity style={styles.primaryBtn} onPress={handleNextStep}>
+                                    <Text style={styles.primaryBtnText}>Proceed</Text>
+                                    <ChevronRight size={20} color={COLORS.white} />
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <View>
+                                <View style={styles.confirmBox}>
+                                    <Text style={styles.confirmLabel}>Withdrawing</Text>
+                                    <Text style={styles.confirmAmount}>₹{withdrawAmount}</Text>
+                                    <View style={styles.bankRow}>
+                                        <Landmark size={16} color={COLORS.textLight} />
+                                        <Text style={styles.bankText}>To Payt*** Bank (...8892)</Text>
+                                    </View>
+                                </View>
+
+                                <Text style={styles.noteText}>
+                                    Note: Transfers usually take up to 24 hours to create in your account.
+                                </Text>
+
+                                <TouchableOpacity style={styles.primaryBtn} onPress={confirmWithdrawal}>
+                                    <Text style={styles.primaryBtnText}>Confirm Withdrawal</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.textBtn}
+                                    onPress={() => setStep(1)}
+                                >
+                                    <Text style={styles.textBtnText}>Back</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -280,5 +372,119 @@ const styles = StyleSheet.create({
     emptyText: {
         color: COLORS.textLight,
         fontSize: 15,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: COLORS.background,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 24,
+        minHeight: 400,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 32,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: COLORS.text,
+    },
+    inputLabel: {
+        fontSize: 14,
+        color: COLORS.textLight,
+        marginBottom: 12,
+        fontWeight: '600',
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderBottomWidth: 2,
+        borderBottomColor: COLORS.border,
+        paddingBottom: 8,
+        marginBottom: 8,
+    },
+    input: {
+        flex: 1,
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: COLORS.text,
+        marginLeft: 12,
+    },
+    availableText: {
+        fontSize: 14,
+        color: COLORS.textLight,
+        marginBottom: 32,
+    },
+    primaryBtn: {
+        backgroundColor: COLORS.primary,
+        paddingVertical: 16,
+        borderRadius: 16,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 2,
+    },
+    primaryBtnText: {
+        color: COLORS.white,
+        fontWeight: 'bold',
+        fontSize: 16,
+        marginRight: 8,
+    },
+    confirmBox: {
+        backgroundColor: COLORS.surface,
+        padding: 24,
+        borderRadius: 16,
+        alignItems: 'center',
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    confirmLabel: {
+        fontSize: 14,
+        color: COLORS.textLight,
+        marginBottom: 8,
+    },
+    confirmAmount: {
+        fontSize: 36,
+        fontWeight: 'bold',
+        color: COLORS.text,
+        marginBottom: 16,
+    },
+    bankRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: COLORS.background,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    bankText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: COLORS.text,
+        marginLeft: 8,
+    },
+    noteText: {
+        fontSize: 13,
+        color: COLORS.textLight,
+        textAlign: 'center',
+        marginBottom: 32,
+        lineHeight: 20,
+    },
+    textBtn: {
+        marginTop: 16,
+        alignItems: 'center',
+        padding: 8,
+    },
+    textBtnText: {
+        color: COLORS.textLight,
+        fontWeight: '600',
     }
 });

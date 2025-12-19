@@ -5,6 +5,7 @@ import AuthStack from './AuthStack';
 import MainTabNavigator from './MainTabNavigator';
 import ChatScreen from '../screens/main/ChatScreen';
 import EditProfileScreen from '../screens/main/EditProfileScreen';
+import NotificationsScreen from '../screens/main/NotificationsScreen';
 
 import SplashScreen from '../screens/splash/SplashScreen';
 import RegistrationScreen from '../screens/auth/RegistrationScreen';
@@ -35,6 +36,7 @@ export default function RootNavigator() {
                         <Stack.Screen name="Register" component={RegistrationScreen} options={{ headerShown: true, title: 'Partner Registration' }} />
                         <Stack.Screen name="VerificationPending" component={VerificationPendingScreen} options={{ headerShown: false }} />
                         <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />
+                        <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
                     </>
                 ) : (
                     <Stack.Screen name="Auth" component={AuthStack} />

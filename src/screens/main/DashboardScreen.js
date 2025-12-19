@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, ScrollView, Modal, TouchableOpacity, Dimensions, Alert, Image, AppState, Linking } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, Switch, ScrollView, Modal, TouchableOpacity, Dimensions, Alert, Image, AppState, Linking, ImageBackground, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../../constants/colors';
 import { THEME } from '../../constants/theme';
 import { Briefcase, IndianRupee, Star, MapPin, Clock, ShieldCheck, ChevronRight, Gift, TrendingUp, Users, Bell, User, X } from 'lucide-react-native';
@@ -15,7 +16,7 @@ const { width } = Dimensions.get('window');
 
 export default function DashboardScreen({ navigation }) {
     const { user, isDutyOn, toggleDuty, partnerStatus, setPartnerStatus, logout } = useAuth();
-    const { activeJob, incomingJob, acceptJob, rejectJob, simulateIncomingJob, jobHistory } = useJob();
+    const { activeJob, incomingJob, acceptJob, rejectJob, simulateIncomingJob, jobHistory, canGoOffline } = useJob();
     const [isRequestModalVisible, setIsRequestModalVisible] = useState(false);
 
     // Location States
@@ -23,7 +24,9 @@ export default function DashboardScreen({ navigation }) {
     const [errorMsg, setErrorMsg] = useState(null);
     const [address, setAddress] = useState(null);
     const [showLocationModal, setShowLocationModal] = useState(false);
+    const [isCheckingLocation, setIsCheckingLocation] = useState(true);
 
+    // Initial and Foreground Check
     useEffect(() => {
         checkLocationPermission();
 
@@ -39,36 +42,94 @@ export default function DashboardScreen({ navigation }) {
         };
     }, []);
 
+    // Check on every focus (Tab switch)
+    useFocusEffect(
+        useCallback(() => {
+            checkLocationPermission();
+        }, [])
+    );
+
     const checkLocationPermission = async () => {
         try {
-            let { status } = await Location.getForegroundPermissionsAsync();
-            if (status === 'granted') {
+            console.log("Checking location permissions...");
+            const { status } = await Location.getForegroundPermissionsAsync();
+            const servicesEnabled = await Location.hasServicesEnabledAsync();
+
+            console.log("Permission status:", status, "Services enabled:", servicesEnabled);
+
+            if (status === 'granted' && servicesEnabled) {
                 setShowLocationModal(false);
                 fetchLocation();
             } else {
+                // Show modal if permission missing OR services disabled
+                console.log("Location access needed (Permission or GPS missing)");
                 setShowLocationModal(true);
             }
         } catch (error) {
             console.error("Error checking permissions:", error);
+            setShowLocationModal(true);
+        } finally {
+            setIsCheckingLocation(false);
         }
     };
 
     const handleAllowLocation = async () => {
-        // We DO NOT close the modal immediately. We wait for the result.
-        let { status } = await Location.requestForegroundPermissionsAsync();
+        try {
+            // 1. Check current status first
+            const { status: existingStatus, canAskAgain } = await Location.getForegroundPermissionsAsync();
 
-        if (status === 'granted') {
+            if (existingStatus === 'granted') {
+                proceedWithLocation();
+                return;
+            }
+
+            // 2. If we can ask, ask. If we can't (denied previously), guide to settings.
+            if (canAskAgain) {
+                const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+                if (newStatus === 'granted') {
+                    proceedWithLocation();
+                } else {
+                    // User denied in the popup
+                    Alert.alert(
+                        "Permission Required",
+                        "Location access is required to use this app. Please allow it.",
+                        [{ text: "OK" }]
+                    );
+                }
+            } else {
+                // Cannot ask again -> Open Settings
+                Alert.alert(
+                    "Permission Required",
+                    "You have previously denied location access. Please enable it manually in your device settings.",
+                    [
+                        { text: "Cancel", style: "cancel" },
+                        { text: "Open Settings", onPress: () => Linking.openSettings() }
+                    ]
+                );
+            }
+        } catch (error) {
+            console.error("Error asking permission", error);
+        }
+    };
+
+    const proceedWithLocation = async () => {
+        // Check if GPS is on
+        const enabled = await Location.hasServicesEnabledAsync();
+        if (!enabled) {
+            try {
+                // This works on Android to show the "Turn on Location" system dialog
+                // On iOS it might do nothing or throw, so catch it
+                await Location.enableNetworkProviderAsync();
+                // After enabling, check permission modal again?
+                // Actually if they turn it on, we good. 
+                setShowLocationModal(false);
+                fetchLocation();
+            } catch (e) {
+                Alert.alert("Location Services Off", "Please turn on your GPS location.");
+            }
+        } else {
             setShowLocationModal(false);
             fetchLocation();
-        } else {
-            // Permission denied - Keep modal open and show alert to go to settings
-            Alert.alert(
-                "Permission Required",
-                "Fresh Hands requires location access to function. Please enable it in your device settings.",
-                [
-                    { text: "Open Settings", onPress: () => Linking.openSettings() }
-                ]
-            );
         }
     };
 
@@ -116,6 +177,10 @@ export default function DashboardScreen({ navigation }) {
     const handleToggleDuty = () => {
         if (!isVerified) {
             Alert.alert("Registration Required", "Please complete your partner registration to go online.");
+            return;
+        }
+        if (isDutyOn && !canGoOffline()) {
+            Alert.alert("Duty Locked", "You cannot go offline while you have active or scheduled jobs. Please complete or cancel them first.");
             return;
         }
         toggleDuty();
@@ -201,6 +266,50 @@ export default function DashboardScreen({ navigation }) {
         </View>
     );
 
+    const StatCard = ({ icon: Icon, title, value, color, onPress }) => (
+        <TouchableOpacity style={styles.statCard} onPress={onPress}>
+            <View style={[styles.iconBox, { backgroundColor: color }]}>
+                <Icon color={COLORS.white} size={20} />
+            </View>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+                <Text style={styles.statTitle}>{title}</Text>
+            </View>
+        </TouchableOpacity>
+    );
+
+    const ActiveJobCard = ({ job }) => (
+        <View style={styles.activeJobCard}>
+            <View style={styles.activeJobHeader}>
+                <Text style={styles.activeJobTitle}>Current Job</Text>
+                <View style={styles.statusBadge}>
+                    <Text style={styles.statusText}>{job.status.replace('_', ' ')}</Text>
+                </View>
+            </View>
+
+            <View style={styles.jobDetails}>
+                <Text style={styles.serviceName}>{job.service}</Text>
+                <Text style={styles.customerName}>{job.customer}</Text>
+
+                <View style={styles.detailRow}>
+                    <MapPin size={16} color={COLORS.textLight} />
+                    <Text style={styles.detailText}>{job.location}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                    <IndianRupee size={16} color={COLORS.textLight} />
+                    <Text style={styles.detailText}>Est. Earnings: ₹{job.earnings}</Text>
+                </View>
+            </View>
+
+            <TouchableOpacity
+                style={styles.viewJobBtn}
+                onPress={() => navigation.navigate('Jobs')}
+            >
+                <Text style={styles.viewJobText}>View Job Details</Text>
+            </TouchableOpacity>
+        </View>
+    );
+
     const GuestDashboard = () => (
         <ScrollView contentContainerStyle={styles.scrollContent}>
             <DashboardHeader location={address} />
@@ -281,7 +390,11 @@ export default function DashboardScreen({ navigation }) {
                     />
                 </View>
 
-                <View style={styles.ratingCard}>
+                <ImageBackground
+                    source={require('../../../assets/rating_bg.jpg')}
+                    style={styles.ratingCard}
+                    imageStyle={{ borderRadius: 16, opacity: 0.2 }}
+                >
                     <Text style={styles.ratingTitle}>Your Performance</Text>
                     <View style={styles.ratingRow}>
                         <Text style={styles.ratingValue}>{user?.rating || '4.8'}</Text>
@@ -289,7 +402,7 @@ export default function DashboardScreen({ navigation }) {
                     </View>
                     <Text style={styles.ratingSub}>Top Tier Partner • 98% Job Success</Text>
                     <Text style={styles.ratingTagline}>You're doing great! Keep it up! ✨</Text>
-                </View>
+                </ImageBackground>
 
                 {incomingJob && !activeJob && (
                     <View style={styles.pendingRequestCard}>
@@ -333,9 +446,14 @@ export default function DashboardScreen({ navigation }) {
                                 {isDutyOn ? "Waiting for new requests..." : "Go Online to receive jobs."}
                             </Text>
                             {isDutyOn && (
-                                <TouchableOpacity onPress={simulateIncomingJob} style={styles.testBtn}>
-                                    <Text style={styles.testBtnText}>Simulate Inviting Job</Text>
-                                </TouchableOpacity>
+                                <View style={{ gap: 10, marginTop: 12 }}>
+                                    <TouchableOpacity onPress={() => simulateIncomingJob('INSTANT')} style={styles.testBtn}>
+                                        <Text style={styles.testBtnText}>Simulate Instant Job</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => simulateIncomingJob('SCHEDULED')} style={[styles.testBtn, { backgroundColor: COLORS.secondary }]}>
+                                        <Text style={[styles.testBtnText, { color: COLORS.white }]}>Simulate Scheduled Job</Text>
+                                    </TouchableOpacity>
+                                </View>
                             )}
                         </View>
                     )}
@@ -344,49 +462,15 @@ export default function DashboardScreen({ navigation }) {
         </ScrollView>
     );
 
-    const StatCard = ({ icon: Icon, title, value, color, onPress }) => (
-        <TouchableOpacity style={styles.statCard} onPress={onPress}>
-            <View style={[styles.iconBox, { backgroundColor: color }]}>
-                <Icon color={COLORS.white} size={20} />
-            </View>
-            <View style={{ flex: 1 }}>
-                <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
-                <Text style={styles.statTitle}>{title}</Text>
-            </View>
-        </TouchableOpacity>
-    );
-
-    const ActiveJobCard = ({ job }) => (
-        <View style={styles.activeJobCard}>
-            <View style={styles.activeJobHeader}>
-                <Text style={styles.activeJobTitle}>Current Job</Text>
-                <View style={styles.statusBadge}>
-                    <Text style={styles.statusText}>{job.status.replace('_', ' ')}</Text>
-                </View>
-            </View>
-
-            <View style={styles.jobDetails}>
-                <Text style={styles.serviceName}>{job.service}</Text>
-                <Text style={styles.customerName}>{job.customer}</Text>
-
-                <View style={styles.detailRow}>
-                    <MapPin size={16} color={COLORS.textLight} />
-                    <Text style={styles.detailText}>{job.location}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                    <IndianRupee size={16} color={COLORS.textLight} />
-                    <Text style={styles.detailText}>Est. Earnings: ₹{job.earnings}</Text>
-                </View>
-            </View>
-
-            <TouchableOpacity
-                style={styles.viewJobBtn}
-                onPress={() => navigation.navigate('Jobs')}
-            >
-                <Text style={styles.viewJobText}>View Job Details</Text>
-            </TouchableOpacity>
-        </View>
-    );
+    // RENDER LOADING
+    if (isCheckingLocation) {
+        return (
+            <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={{ marginTop: 12, color: COLORS.textLight }}>Checking permissions...</Text>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -407,6 +491,17 @@ export default function DashboardScreen({ navigation }) {
 
                         {incomingJob && (
                             <View style={styles.jobPreview}>
+                                <View style={{
+                                    backgroundColor: incomingJob.type === 'INSTANT' ? '#FFEBEE' : '#E3F2FD',
+                                    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, marginBottom: 8
+                                }}>
+                                    <Text style={{
+                                        color: incomingJob.type === 'INSTANT' ? '#D32F2F' : '#1976D2',
+                                        fontSize: 12, fontWeight: 'bold'
+                                    }}>
+                                        {incomingJob.type === 'INSTANT' ? '⚡ INSTANT ORDER' : '📅 SCHEDULED ORDER'}
+                                    </Text>
+                                </View>
                                 <Text style={styles.jobService}>{incomingJob.service}</Text>
                                 <Text style={styles.jobLocation}>{incomingJob.location}</Text>
                                 <View style={styles.priceTag}>

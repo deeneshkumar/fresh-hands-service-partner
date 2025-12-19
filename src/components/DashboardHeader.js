@@ -4,9 +4,11 @@ import { COLORS } from '../constants/colors';
 import { THEME } from '../constants/theme';
 import { MapPin, Bell, User } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 export default function DashboardHeader({ location }) {
     const { user, isDutyOn, toggleDuty, partnerStatus } = useAuth();
+    const navigation = useNavigation();
     const isVerified = partnerStatus === 'APPROVED';
 
     const handleToggleDuty = () => {
@@ -31,7 +33,10 @@ export default function DashboardHeader({ location }) {
                         </View>
                     </View>
                 </View>
-                <TouchableOpacity style={styles.notificationBtn}>
+                <TouchableOpacity
+                    style={styles.notificationBtn}
+                    onPress={() => navigation.navigate('Notifications')}
+                >
                     <View style={styles.redDot} />
                     <Bell size={24} color={COLORS.text} />
                 </TouchableOpacity>

@@ -84,7 +84,7 @@ export default function CompleteProfileScreen({ navigation, route }) {
 
                     {/* Email (Optional) */}
                     <View style={[styles.section, { marginBottom: 6 }]}>
-                        <Text style={styles.label}>Email <Text style={styles.required}>(Optional)</Text></Text>
+                        <Text style={styles.label}>Email <Text style={{ color: COLORS.textLight, fontWeight: '400' }}>(Optional)</Text></Text>
                         <Input
                             placeholder="Enter your email address"
                             value={email}

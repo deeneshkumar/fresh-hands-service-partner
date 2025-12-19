@@ -3,184 +3,26 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { THEME } from '../../constants/theme';
-import { MapPin, Calendar, Clock, Phone, Navigation, CheckCircle, ChevronLeft, IndianRupee, Info } from 'lucide-react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import * as Location from 'expo-location';
+import { MapPin, Calendar, Clock, Phone, Navigation, CheckCircle, ChevronLeft, IndianRupee, Info, User } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useJob } from '../../context/JobContext';
+import TrackingMap from '../../components/TrackingMap';
+import NavigationModal from '../../components/NavigationModal';
 
 const { width, height } = Dimensions.get('window');
-
-const MAP_STYLE = [
-    {
-        "elementType": "geometry",
-        "stylers": [
-            {
-                "color": "#242f3e"
-            }
-        ]
-    },
-    {
-        "elementType": "labels.text.fill",
-        "stylers": [
-            {
-                "color": "#746855"
-            }
-        ]
-    },
-    {
-        "elementType": "labels.text.stroke",
-        "stylers": [
-            {
-                "color": "#242f3e"
-            }
-        ]
-    },
-    {
-        "featureType": "administrative.locality",
-        "elementType": "labels.text.fill",
-        "stylers": [
-            {
-                "color": "#d59563"
-            }
-        ]
-    },
-    {
-        "featureType": "poi",
-        "elementType": "labels.text.fill",
-        "stylers": [
-            {
-                "color": "#d59563"
-            }
-        ]
-    },
-    {
-        "featureType": "poi.park",
-        "elementType": "geometry",
-        "stylers": [
-            {
-                "color": "#263c3f"
-            }
-        ]
-    },
-    {
-        "featureType": "poi.park",
-        "elementType": "labels.text.fill",
-        "stylers": [
-            {
-                "color": "#6b9a76"
-            }
-        ]
-    },
-    {
-        "featureType": "road",
-        "elementType": "geometry",
-        "stylers": [
-            {
-                "color": "#38414e"
-            }
-        ]
-    },
-    {
-        "featureType": "road",
-        "elementType": "geometry.stroke",
-        "stylers": [
-            {
-                "color": "#212a37"
-            }
-        ]
-    },
-    {
-        "featureType": "road",
-        "elementType": "labels.text.fill",
-        "stylers": [
-            {
-                "color": "#9ca5b3"
-            }
-        ]
-    },
-    {
-        "featureType": "road.highway",
-        "elementType": "geometry",
-        "stylers": [
-            {
-                "color": "#746855"
-            }
-        ]
-    },
-    {
-        "featureType": "road.highway",
-        "elementType": "geometry.stroke",
-        "stylers": [
-            {
-                "color": "#1f2835"
-            }
-        ]
-    },
-    {
-        "featureType": "road.highway",
-        "elementType": "labels.text.fill",
-        "stylers": [
-            {
-                "color": "#f3d19c"
-            }
-        ]
-    },
-    {
-        "featureType": "transit",
-        "elementType": "geometry",
-        "stylers": [
-            {
-                "color": "#2f3948"
-            }
-        ]
-    },
-    {
-        "featureType": "transit.station",
-        "elementType": "labels.text.fill",
-        "stylers": [
-            {
-                "color": "#d59563"
-            }
-        ]
-    },
-    {
-        "featureType": "water",
-        "elementType": "geometry",
-        "stylers": [
-            {
-                "color": "#17263c"
-            }
-        ]
-    },
-    {
-        "featureType": "water",
-        "elementType": "labels.text.fill",
-        "stylers": [
-            {
-                "color": "#515c6d"
-            }
-        ]
-    },
-    {
-        "featureType": "water",
-        "elementType": "labels.text.stroke",
-        "stylers": [
-            {
-                "color": "#17263c"
-            }
-        ]
-    }
-];
 
 export default function JobsScreen({ navigation }) {
     const { partnerStatus } = useAuth();
     const [activeTab, setActiveTab] = useState('ACTIVE'); // ACTIVE | HISTORY
-    const { activeJob, incomingJob, jobHistory, updateJobStatus, completeJob, acceptJob, rejectJob } = useJob();
+    const { assignments, activeJob, incomingJob, jobHistory, updateJobStatus, completeJob, acceptJob, rejectJob, cancelJob, startSimulation, partnerLocation, routeInfo } = useJob();
     const [filterPeriod, setFilterPeriod] = useState('ALL'); // ALL | TODAY | WEEK | MONTH
-    const [showFullMap, setShowFullMap] = useState(false);
+
+    // Navigation Modal State
+    const [navModalVisible, setNavModalVisible] = useState(false);
+    const [navJob, setNavJob] = useState(null);
 
     if (partnerStatus !== 'APPROVED') {
+        // ... (Access Restricted View)
         return (
             <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
                 <View style={{ padding: 20, backgroundColor: COLORS.surface, borderRadius: 16, alignItems: 'center', width: '100%' }}>
@@ -199,18 +41,26 @@ export default function JobsScreen({ navigation }) {
         );
     }
 
-    const handleStatusUpdate = () => {
-        if (!activeJob) return;
+    const handleStatusUpdate = (job) => {
+        if (!job) return;
 
-        switch (activeJob.status) {
+        switch (job.status) {
             case 'ACCEPTED':
-                updateJobStatus('ON_THE_WAY');
+                // Start Simulation & Navigate
+                if (startSimulation) {
+                    startSimulation(job);
+                }
+                setNavJob(job);
+                setNavModalVisible(true);
                 break;
             case 'ON_THE_WAY':
-                updateJobStatus('ARRIVED');
+                // Resume Navigation if closed, or just show map? 
+                // For now, re-open navigation
+                setNavJob(job);
+                setNavModalVisible(true);
                 break;
             case 'ARRIVED':
-                updateJobStatus('IN_PROGRESS');
+                updateJobStatus(job.id, 'IN_PROGRESS');
                 break;
             case 'IN_PROGRESS':
                 Alert.alert(
@@ -218,7 +68,7 @@ export default function JobsScreen({ navigation }) {
                     "Are you sure you want to mark this job as completed?",
                     [
                         { text: "Cancel", style: "cancel" },
-                        { text: "Yes, Complete", onPress: () => completeJob() }
+                        { text: "Yes, Complete", onPress: () => completeJob(job.id) }
                     ]
                 );
                 break;
@@ -227,10 +77,19 @@ export default function JobsScreen({ navigation }) {
         }
     };
 
+    const handleArrivedFromModal = () => {
+        if (navJob) {
+            updateJobStatus(navJob.id, 'ARRIVED');
+            setNavModalVisible(false);
+            setNavJob(null);
+            Alert.alert("You've Arrived!", "Marked as arrived at customer location.");
+        }
+    };
+
     const getButtonLabel = (status) => {
         switch (status) {
-            case 'ACCEPTED': return 'Start Travel';
-            case 'ON_THE_WAY': return 'Mark Arrived';
+            case 'ACCEPTED': return 'Start Travel & Navigate';
+            case 'ON_THE_WAY': return 'Continue Navigation';
             case 'ARRIVED': return 'Start Job';
             case 'IN_PROGRESS': return 'Complete Job';
             default: return 'Job Completed';
@@ -272,154 +131,175 @@ export default function JobsScreen({ navigation }) {
         </View>
     );
 
-    const TrackingMap = ({ job }) => {
-        if (!job) return null;
+    // RENDER ITEM FOR ACTIVE JOBS LIST
+    const ActiveJobItem = ({ job }) => (
+        <View style={{ marginBottom: 24 }} key={job.id}>
+            <TrackingMap
+                job={job}
+                partnerLocation={job.status === 'ON_THE_WAY' ? partnerLocation : null}
+            />
 
-        const { customerCoords } = job;
-        const [partnerCoords, setPartnerCoords] = useState(job.partnerCoords || { latitude: 28.4495, longitude: 77.0166 });
-        const [routeInfo, setRouteInfo] = useState({ distance: job.distance || '0 km', eta: job.eta || '0 min' });
-        const [mapRef, setMapRef] = useState(null);
-
-        // Calculate Distance using Haversine
-        const calculateDistance = (lat1, lon1, lat2, lon2) => {
-            const R = 6371; // Radius of the earth in km
-            const dLat = deg2rad(lat2 - lat1);
-            const dLon = deg2rad(lon2 - lon1);
-            const a =
-                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            const d = R * c; // Distance in km
-            return d;
-        };
-
-        const deg2rad = (deg) => {
-            return deg * (Math.PI / 180);
-        }
-
-        useEffect(() => {
-            let locationSubscription = null;
-
-            if (showFullMap) {
-                (async () => {
-                    locationSubscription = await Location.watchPositionAsync(
-                        {
-                            accuracy: Location.Accuracy.High,
-                            timeInterval: 5000,
-                            distanceInterval: 10,
-                        },
-                        (location) => {
-                            const { latitude, longitude } = location.coords;
-                            setPartnerCoords({ latitude, longitude });
-
-                            // Update Info
-                            const dist = calculateDistance(latitude, longitude, customerCoords.latitude, customerCoords.longitude);
-                            setRouteInfo({
-                                distance: `${dist.toFixed(1)} km`,
-                                eta: `${Math.ceil(dist * 3)} mins` // Crude estimation: 20km/h avg speed in city
-                            });
-
-                            // Animate Camera
-                            if (mapRef) {
-                                mapRef.animateCamera({
-                                    center: { latitude, longitude },
-                                    pitch: 45,
-                                    heading: location.coords.heading,
-                                    zoom: 18,
-                                });
-                            }
-                        }
-                    );
-                })();
-            }
-
-            return () => {
-                if (locationSubscription) {
-                    locationSubscription.remove();
-                }
-            };
-        }, [showFullMap, customerCoords]);
-
-
-        const handleNavigateToggle = () => {
-            setShowFullMap(!showFullMap);
-        };
-
-        return (
-            <View style={[styles.mapContainer, showFullMap && styles.fullMap]}>
-                {showFullMap && (
-                    <View style={styles.navHeader}>
-                        <TouchableOpacity style={styles.navBackBtn} onPress={handleNavigateToggle}>
-                            <ChevronLeft size={24} color={COLORS.white} />
-                        </TouchableOpacity>
-                        <Text style={styles.navTitle}>Navigating to Customer</Text>
+            <View style={styles.activeCard}>
+                <View style={styles.activeHeader}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={styles.jobId}>Job #{job.id ? job.id.slice(-6) : '...'}</Text>
+                        <Text style={styles.serviceName} numberOfLines={2} adjustsFontSizeToFit>{job.service}</Text>
                     </View>
-                )}
-
-                <MapView
-                    provider={PROVIDER_GOOGLE}
-                    ref={(ref) => setMapRef(ref)}
-                    style={styles.map}
-                    customMapStyle={MAP_STYLE}
-                    region={{
-                        latitude: partnerCoords.latitude,
-                        longitude: partnerCoords.longitude,
-                        latitudeDelta: 0.01,
-                        longitudeDelta: 0.01,
-                    }}
-                    showsUserLocation={true}
-                    followsUserLocation={showFullMap}
-                >
-                    {/* Partner Marker (Custom Icon if needed, or rely on showsUserLocation) */}
-                    <Marker coordinate={partnerCoords} title="You">
-                        <View style={styles.partnerMarker}>
-                            <Navigation size={24} color={COLORS.primary} fill={COLORS.primary} />
+                    <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
+                        <View style={styles.statusBadge}>
+                            <Text style={styles.statusText}>{job.status.replace('_', ' ')}</Text>
                         </View>
-                    </Marker>
-
-                    {/* Customer Marker */}
-                    <Marker coordinate={customerCoords} title="Customer">
-                        <View style={styles.customerMarker}>
-                            <MapPin size={32} color={COLORS.error} fill={COLORS.white} />
-                        </View>
-                    </Marker>
-
-                    {/* Route Line */}
-                    <Polyline
-                        coordinates={[partnerCoords, customerCoords]}
-                        strokeColor={COLORS.primary}
-                        strokeWidth={4}
-                    />
-                </MapView>
-
-                {/* Tracking Info Overlay */}
-                <View style={styles.trackingOverlay}>
-                    <View style={styles.trackingInfo}>
-                        <View style={styles.trackingStat}>
-                            <Text style={styles.trackingLabel}>Distance</Text>
-                            <Text style={styles.trackingValue}>{routeInfo.distance}</Text>
-                        </View>
-                        <View style={styles.trackingDivider} />
-                        <View style={styles.trackingStat}>
-                            <Text style={styles.trackingLabel}>ETA</Text>
-                            <Text style={styles.trackingValue}>{routeInfo.eta}</Text>
+                        <View style={{
+                            marginTop: 6,
+                            backgroundColor: job.type === 'INSTANT' ? '#FFEBEE' : '#E3F2FD',
+                            paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
+                            borderWidth: 1, borderColor: job.type === 'INSTANT' ? '#FFCDD2' : '#BBDEFB'
+                        }}>
+                            <Text style={{
+                                color: job.type === 'INSTANT' ? '#D32F2F' : '#1976D2',
+                                fontSize: 10, fontWeight: '800'
+                            }}>
+                                {job.type === 'INSTANT' ? '⚡ INSTANT' : '📅 SCHEDULED'}
+                            </Text>
                         </View>
                     </View>
                 </View>
 
-                {!showFullMap && (
-                    <TouchableOpacity
-                        style={styles.expandBtn}
-                        onPress={handleNavigateToggle}
-                    >
-                        <Text style={styles.expandBtnText}>Navigate</Text>
-                        <Navigation size={16} color={COLORS.white} style={{ marginLeft: 6 }} />
-                    </TouchableOpacity>
+                <View style={styles.divider} />
+
+                <View style={styles.infoRow}>
+                    <MapPin size={20} color={COLORS.primary} />
+                    <View style={{ marginLeft: 12, flex: 1 }}>
+                        <Text style={styles.label}>Location</Text>
+                        <Text style={styles.value}>{job.location}</Text>
+                        <Text style={styles.address}>{job.address}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.infoRow}>
+                    <User size={20} color={COLORS.primary} />
+                    <View style={{ marginLeft: 12, flex: 1 }}>
+                        <Text style={styles.label}>Customer</Text>
+                        <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit>{job.customer}</Text>
+                    </View>
+                </View>
+
+                {job.type === 'SCHEDULED' && job.scheduledTime && (
+                    <View style={styles.infoRow}>
+                        <Clock size={20} color={COLORS.secondary} />
+                        <View style={{ marginLeft: 12, flex: 1 }}>
+                            <Text style={styles.label}>Scheduled For</Text>
+                            <Text style={styles.value}>
+                                {new Date(job.scheduledTime).toLocaleDateString()} at {new Date(job.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </Text>
+                        </View>
+                    </View>
                 )}
+
+                <View style={styles.infoRow}>
+                    <IndianRupee size={20} color={COLORS.success} />
+                    <View style={{ marginLeft: 12, flex: 1 }}>
+                        <Text style={styles.label}>Estimated Earnings</Text>
+                        <Text style={[styles.value, { color: COLORS.success }]}>₹{job.earnings}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.actionSection}>
+                    <TouchableOpacity
+                        style={[styles.statusBtn, job.status === 'IN_PROGRESS' && styles.completeBtn]}
+                        onPress={() => handleStatusUpdate(job)}
+                    >
+                        <Text style={styles.statusBtnText}>{getButtonLabel(job.status)}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.statusBtn, { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.error, flex: 0.4 }]}
+                        onPress={() => {
+                            Alert.alert(
+                                "Cancel Job",
+                                "Are you sure you want to cancel this job?",
+                                [
+                                    { text: "No", style: "cancel" },
+                                    { text: "Yes, Cancel", style: 'destructive', onPress: () => cancelJob(job.id) }
+                                ]
+                            );
+                        }}
+                    >
+                        <Text style={[styles.statusBtnText, { color: COLORS.error }]}>Cancel</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
-        );
-    };
+        </View>
+    );
+
+    const IncomingJobView = () => (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+            <TrackingMap job={incomingJob} showRoute={false} />
+
+            <View style={styles.activeCard}>
+                <View style={styles.activeHeader}>
+                    {/* ... */}
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={styles.jobId}>PENDING REQUEST</Text>
+                        <Text style={styles.serviceName} numberOfLines={2} adjustsFontSizeToFit>{incomingJob.service}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
+                        <View style={[styles.statusBadge, { backgroundColor: COLORS.warning + '20' }]}>
+                            <Text style={[styles.statusText, { color: COLORS.warning }]}>NEW</Text>
+                        </View>
+                    </View>
+                </View>
+                {/* ... existing Details ... */}
+                <View style={styles.divider} />
+
+                <View style={styles.infoRow}>
+                    <MapPin size={20} color={COLORS.primary} />
+                    <View style={{ marginLeft: 12, flex: 1 }}>
+                        <Text style={styles.label}>Service Address</Text>
+                        <Text style={styles.value}>{incomingJob.location}</Text>
+                        <Text style={styles.address}>{incomingJob.address}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.infoRow}>
+                    <User size={20} color={COLORS.primary} />
+                    <View style={{ marginLeft: 12, flex: 1 }}>
+                        <Text style={styles.label}>Customer</Text>
+                        <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit>{incomingJob.customer}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.infoRow}>
+                    <IndianRupee size={20} color={COLORS.success} />
+                    <View style={{ marginLeft: 12, flex: 1 }}>
+                        <Text style={styles.label}>Price</Text>
+                        <Text style={[styles.value, { color: COLORS.success }]}>₹{incomingJob.earnings}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.actionSection}>
+                    <TouchableOpacity
+                        style={styles.rejectFullBtn}
+                        onPress={() => {
+                            rejectJob();
+                            Alert.alert("Job Rejected", "The request has been removed.");
+                        }}
+                    >
+                        <Text style={styles.rejectFullBtnText}>Reject Job</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.acceptFullBtn}
+                        onPress={() => {
+                            acceptJob();
+                            // Alert.alert("Job Accepted", "Please head to the customer location.");
+                        }}
+                    >
+                        <Text style={styles.acceptFullBtnText}>Accept Job</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </ScrollView>
+    );
 
     const HistoryItem = ({ item }) => (
         <TouchableOpacity
@@ -450,7 +330,16 @@ export default function JobsScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.container}>
-            {!showFullMap && <Header />}
+            <NavigationModal
+                visible={navModalVisible}
+                onClose={() => setNavModalVisible(false)}
+                job={navJob}
+                partnerLocation={partnerLocation}
+                routeInfo={routeInfo}
+                onArrived={handleArrivedFromModal}
+            />
+
+            <Header />
             <View style={styles.tabBar}>
                 <TabButton title="Current Jobs" tab="ACTIVE" />
                 <TabButton title="History" tab="HISTORY" />
@@ -458,122 +347,14 @@ export default function JobsScreen({ navigation }) {
 
             <View style={styles.content}>
                 {activeTab === 'ACTIVE' ? (
-                    activeJob ? (
+                    assignments.length > 0 ? (
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-                            <TrackingMap job={activeJob} />
-
-                            <View style={styles.activeCard}>
-                                <View style={styles.activeHeader}>
-                                    <View>
-                                        <Text style={styles.jobId}>Job #{activeJob.id.slice(-6)}</Text>
-                                        <Text style={styles.serviceName}>{activeJob.service}</Text>
-                                    </View>
-                                    <View style={styles.statusBadge}>
-                                        <Text style={styles.statusText}>{activeJob.status.replace('_', ' ')}</Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.divider} />
-
-                                <View style={styles.infoRow}>
-                                    <MapPin size={20} color={COLORS.primary} />
-                                    <View style={{ marginLeft: 12, flex: 1 }}>
-                                        <Text style={styles.label}>Location</Text>
-                                        <Text style={styles.value}>{activeJob.location}</Text>
-                                        <Text style={styles.address}>{activeJob.address}</Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.infoRow}>
-                                    <Phone size={20} color={COLORS.primary} />
-                                    <View style={{ marginLeft: 12 }}>
-                                        <Text style={styles.label}>Customer</Text>
-                                        <Text style={styles.value}>{activeJob.customer}</Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.infoRow}>
-                                    <IndianRupee size={20} color={COLORS.success} />
-                                    <View style={{ marginLeft: 12 }}>
-                                        <Text style={styles.label}>Estimated Earnings</Text>
-                                        <Text style={[styles.value, { color: COLORS.success }]}>₹{activeJob.earnings}</Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.actionSection}>
-                                    <TouchableOpacity
-                                        style={[styles.statusBtn, activeJob.status === 'IN_PROGRESS' && styles.completeBtn]}
-                                        onPress={handleStatusUpdate}
-                                    >
-                                        <Text style={styles.statusBtnText}>{getButtonLabel(activeJob.status)}</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
+                            {assignments.map(job => (
+                                <ActiveJobItem key={job.id} job={job} />
+                            ))}
                         </ScrollView>
                     ) : incomingJob ? (
-                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-                            <TrackingMap job={incomingJob} />
-
-                            <View style={styles.activeCard}>
-                                <View style={styles.activeHeader}>
-                                    <View>
-                                        <Text style={styles.jobId}>PENDING REQUEST</Text>
-                                        <Text style={styles.serviceName}>{incomingJob.service}</Text>
-                                    </View>
-                                    <View style={[styles.statusBadge, { backgroundColor: COLORS.warning + '20' }]}>
-                                        <Text style={[styles.statusText, { color: COLORS.warning }]}>NEW</Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.divider} />
-
-                                <View style={styles.infoRow}>
-                                    <MapPin size={20} color={COLORS.primary} />
-                                    <View style={{ marginLeft: 12, flex: 1 }}>
-                                        <Text style={styles.label}>Service Address</Text>
-                                        <Text style={styles.value}>{incomingJob.location}</Text>
-                                        <Text style={styles.address}>{incomingJob.address}</Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.infoRow}>
-                                    <Phone size={20} color={COLORS.primary} />
-                                    <View style={{ marginLeft: 12 }}>
-                                        <Text style={styles.label}>Customer</Text>
-                                        <Text style={styles.value}>{incomingJob.customer}</Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.infoRow}>
-                                    <IndianRupee size={20} color={COLORS.success} />
-                                    <View style={{ marginLeft: 12 }}>
-                                        <Text style={styles.label}>Price</Text>
-                                        <Text style={[styles.value, { color: COLORS.success }]}>₹{incomingJob.earnings}</Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.actionSection}>
-                                    <TouchableOpacity
-                                        style={styles.rejectFullBtn}
-                                        onPress={() => {
-                                            rejectJob();
-                                            Alert.alert("Job Rejected", "The request has been removed.");
-                                        }}
-                                    >
-                                        <Text style={styles.rejectFullBtnText}>Reject Job</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={styles.acceptFullBtn}
-                                        onPress={() => {
-                                            acceptJob();
-                                            Alert.alert("Job Accepted", "Please head to the customer location.");
-                                        }}
-                                    >
-                                        <Text style={styles.acceptFullBtnText}>Accept Job</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        </ScrollView>
+                        <IncomingJobView />
                     ) : (
                         <View style={styles.emptyBox}>
                             <Text style={styles.emptyText}>No active or pending jobs right now.</Text>
@@ -809,15 +590,16 @@ const styles = StyleSheet.create({
     },
     infoRow: {
         flexDirection: 'row',
-        marginBottom: 20,
+        marginBottom: 12,
+        alignItems: 'center', // Ensure icon and text align vertically center if needed, or flex-start
     },
     label: {
         fontSize: 12,
         color: COLORS.textLight,
-        marginBottom: 4,
+        marginBottom: 2,
     },
     value: {
-        fontSize: 16,
+        fontSize: 15, // Slightly adjust for compactness
         fontWeight: '700',
         color: COLORS.text,
     },

@@ -9,9 +9,9 @@ export default function LocationPermissionModal({ visible, onAllow }) {
     return (
         <Modal
             visible={visible}
-            transparent
+            transparent={true}
             animationType="slide"
-            statusBarTranslucent
+            statusBarTranslucent={true}
             onRequestClose={() => { }} // Prevent hardware back button from closing
         >
             <View style={styles.overlay}>
